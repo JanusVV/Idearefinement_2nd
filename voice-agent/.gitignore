@@ -1,0 +1,5 @@
+# Web test – do not commit API key
+web-test/config.js
+
+# Android – do not commit API key (add GEMINI_API_KEY=your-key to local.properties)
+local.properties
