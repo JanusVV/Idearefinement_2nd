@@ -717,6 +717,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       let backendUrl = '';
       let conductorPrompt = '';
       let projectId = null;
+      let resumableProject = null;
       try {
         const mod = await import('./config.js');
         apiKey = mod.GEMINI_API_KEY;
@@ -739,7 +740,6 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (backendUrl) {
         const base = backendUrl.replace(/\/$/, '');
         try {
-          let resumableProject = null;
           const lastId = localStorage.getItem('idearefinement_lastProjectId');
           if (lastId) {
             const r = await fetch(base + '/projects/' + encodeURIComponent(lastId));
