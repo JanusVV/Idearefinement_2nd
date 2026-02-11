@@ -9,6 +9,7 @@ const registry = require('../registry');
 const workers = {
   prdLite: require('../workers/prdLite'),
   competitorScan: require('../workers/competitorScan'),
+  riskRegister: require('../workers/riskRegister'),
 };
 
 const router = express.Router();

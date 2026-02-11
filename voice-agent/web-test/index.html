@@ -77,6 +77,13 @@
     </select>
     <button type="button" id="btnRefreshMic">Refresh list</button>
   </div>
+  <div id="projectsSection" style="display: none; margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">Projects</div>
+    <select id="projectsSelect" style="width: 100%; max-width: 360px; padding: 0.5rem; font-size: 0.875rem; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px;">
+      <option value="">— Select project —</option>
+    </select>
+    <button type="button" id="btnRefreshProjects" style="margin-top: 0.5rem; padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Refresh list</button>
+  </div>
   <div class="transcript" id="transcript"></div>
   <div id="screenLayer" class="screen-layer" style="display: none; margin-bottom: 1rem; background: #0f172a; border-radius: 8px; padding: 1rem; font-size: 0.875rem;">
     <div style="font-weight: bold; margin-bottom: 0.5rem;">Idea Snapshot (Screen layer)</div>
@@ -85,6 +92,7 @@
     <div id="workerButtons" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
       <button type="button" class="worker-btn" data-job="prdLite" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run PRD-lite</button>
       <button type="button" class="worker-btn" data-job="competitorScan" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run competitor scan</button>
+      <button type="button" class="worker-btn" data-job="riskRegister" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run risk register</button>
     </div>
     <details style="margin-top: 0.5rem;"><summary>Full registry</summary><pre id="screenRegistry" style="white-space: pre-wrap; word-break: break-all; font-size: 0.7rem; margin-top: 0.25rem;"></pre></details>
   </div>
@@ -162,6 +170,43 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         const r = await fetch(base + '/projects/' + encodeURIComponent(projectId));
         return r.ok ? await r.json() : null;
       } catch (_) { return null; }
+    }
+
+    function showProjectsSection() {
+      const el = document.getElementById('projectsSection');
+      if (el && currentBackendUrl) { el.style.display = 'block'; refreshProjectsList(); }
+    }
+
+    async function refreshProjectsList() {
+      if (!currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const select = document.getElementById('projectsSelect');
+      if (!select) return;
+      try {
+        const r = await fetch(base + '/projects');
+        const list = r.ok ? await r.json() : [];
+        select.innerHTML = '<option value="">— Select project —</option>';
+        list.sort((a, b) => new Date(b.lastActiveAt || 0) - new Date(a.lastActiveAt || 0));
+        list.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.projectId;
+          opt.textContent = (p.snapshot || p.projectId).slice(0, 60) + (p.snapshot && p.snapshot.length > 60 ? '…' : '');
+          select.appendChild(opt);
+        });
+      } catch (e) { log('Refresh projects failed', e); }
+    }
+
+    async function loadProjectIntoUI(projectId) {
+      if (!projectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const proj = await fetchProject(base, projectId);
+      if (!proj) return;
+      currentProjectId = projectId;
+      localStorage.setItem('idearefinement_lastProjectId', projectId);
+      updateScreenLayer(proj);
+      document.getElementById('screenLayer').style.display = 'block';
+      setStatus('Switched to project. Click Start to resume.');
+      log('Loaded project', projectId);
     }
 
     async function runWorker(jobType) {
@@ -751,6 +796,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             currentBackendUrl = base;
             updateScreenLayer(resumableProject);
             document.getElementById('screenLayer').style.display = 'block';
+            showProjectsSection();
             log('Resuming project', projectId);
           } else {
             const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -764,6 +810,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
               projectId = proj.projectId;
               currentProjectId = projectId;
               currentBackendUrl = base;
+              showProjectsSection();
               log('Created project', projectId);
             }
           }
@@ -866,6 +913,20 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const job = e.target?.closest('.worker-btn')?.getAttribute('data-job');
       if (job) runWorker(job);
     });
+
+    document.getElementById('btnRefreshProjects')?.addEventListener('click', () => refreshProjectsList());
+    document.getElementById('projectsSelect')?.addEventListener('change', (e) => {
+      const id = e.target?.value;
+      if (id) loadProjectIntoUI(id);
+    });
+
+    (async () => {
+      try {
+        const mod = await import('./config.js');
+        const url = (mod.BACKEND_URL || '').trim();
+        if (url) { currentBackendUrl = url.replace(/\/$/, ''); showProjectsSection(); }
+      } catch (_) {}
+    })();
   </script>
 </body>
 </html>
