@@ -15,17 +15,22 @@ const router = express.Router();
 
 router.post('/:jobType', (req, res) => {
   const jobType = req.params.jobType;
-  const { projectId } = req.body || {};
+  const { projectId, apply } = req.body || {};
 
   if (!projectId) return res.status(400).json({ error: 'projectId required' });
   const worker = workers[jobType];
   if (!worker) return res.status(404).json({ error: 'Unknown job type: ' + jobType });
 
-  const project = registry.load(projectId);
+  let project = registry.load(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   try {
     const result = worker.run(project);
+    if (apply && result.suggestedPatch) {
+      project = registry.applyPatch(project, { ...result.suggestedPatch, projectId: project.projectId });
+      registry.save(project);
+      return res.json({ ...result, project });
+    }
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });

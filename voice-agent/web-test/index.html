@@ -82,6 +82,10 @@
     <div style="font-weight: bold; margin-bottom: 0.5rem;">Idea Snapshot (Screen layer)</div>
     <div id="screenSnapshot">—</div>
     <div style="margin-top: 0.5rem; color: #94a3b8;">Track &amp; Rigor: <span id="screenTrack">—</span> · Phase: <span id="screenPhase">—</span></div>
+    <div id="workerButtons" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button type="button" class="worker-btn" data-job="prdLite" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run PRD-lite</button>
+      <button type="button" class="worker-btn" data-job="competitorScan" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run competitor scan</button>
+    </div>
     <details style="margin-top: 0.5rem;"><summary>Full registry</summary><pre id="screenRegistry" style="white-space: pre-wrap; word-break: break-all; font-size: 0.7rem; margin-top: 0.25rem;"></pre></details>
   </div>
   <div id="micMeter" class="mic-meter" style="display: none;">
@@ -91,6 +95,7 @@
     <div id="micValue" class="value">—</div>
   </div>
   <button id="btnStart" class="primary" type="button">Start conversation</button>
+  <button id="btnNewIdea" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: none; border-radius: 8px; cursor: pointer;">New idea</button>
   <button id="btnStop" class="stop" type="button" style="display: none;">Stop</button>
   <button id="btnDoneSpeaking" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border-radius: 8px; cursor: pointer;">Done speaking (send to model)</button>
   <div id="error" class="error-msg" hidden></div>
@@ -157,6 +162,21 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         const r = await fetch(base + '/projects/' + encodeURIComponent(projectId));
         return r.ok ? await r.json() : null;
       } catch (_) { return null; }
+    }
+
+    async function runWorker(jobType) {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const btn = document.querySelector('.worker-btn[data-job="' + jobType + '"]');
+      if (btn) btn.disabled = true;
+      try {
+        const r = await fetch(base + '/workers/' + jobType, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: currentProjectId, apply: true }) });
+        if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error || r.statusText); }
+        const data = await r.json();
+        if (data.project) updateScreenLayer(data.project);
+        log('Worker', jobType, 'done');
+      } catch (e) { log('Worker failed', e); if (typeof setStatus === 'function') setStatus('Worker failed: ' + (e.message || e)); }
+      if (btn) btn.disabled = false;
     }
 
     function log(...args) {
@@ -719,18 +739,33 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (backendUrl) {
         const base = backendUrl.replace(/\/$/, '');
         try {
-          const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-          const ct = createRes.headers.get('content-type') || '';
-          if (ct.includes('text/html')) {
-            log('Backend returned HTML — is BACKEND_URL the backend (port 3002), not the web app (3001)?');
-            configWarning.hidden = false;
-            configWarning.textContent = 'Backend returned a page instead of JSON. In config.js set BACKEND_URL to http://localhost:3002 (the backend), not 3001.';
-          } else if (createRes.ok) {
-            const proj = await createRes.json();
-            projectId = proj.projectId;
+          let resumableProject = null;
+          const lastId = localStorage.getItem('idearefinement_lastProjectId');
+          if (lastId) {
+            const r = await fetch(base + '/projects/' + encodeURIComponent(lastId));
+            if (r.ok) resumableProject = await r.json();
+          }
+          if (resumableProject?.checkpoint) {
+            projectId = resumableProject.projectId;
             currentProjectId = projectId;
             currentBackendUrl = base;
-            log('Created project', projectId);
+            updateScreenLayer(resumableProject);
+            document.getElementById('screenLayer').style.display = 'block';
+            log('Resuming project', projectId);
+          } else {
+            const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            const ct = createRes.headers.get('content-type') || '';
+            if (ct.includes('text/html')) {
+              log('Backend returned HTML — is BACKEND_URL the backend (port 3002), not the web app (3001)?');
+              configWarning.hidden = false;
+              configWarning.textContent = 'Backend returned a page instead of JSON. In config.js set BACKEND_URL to http://localhost:3002 (the backend), not 3001.';
+            } else if (createRes.ok) {
+              const proj = await createRes.json();
+              projectId = proj.projectId;
+              currentProjectId = projectId;
+              currentBackendUrl = base;
+              log('Created project', projectId);
+            }
           }
           const promptRes = await fetch(base + '/prompts/conductor');
           if (promptRes.ok) conductorPrompt = await promptRes.text();
@@ -746,9 +781,12 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         await startConversation(apiKey, { systemInstruction, projectId, backendUrl: currentBackendUrl });
         log('startConversation resolved, sending initial turn to wake model');
         setStatus('Starting…');
-        const initialText = projectId
-          ? 'We are starting idea refinement. ProjectId is ' + projectId + '. Say a brief hello and ask for the idea in one sentence.'
-          : 'Hello. The user is ready. Say a brief hello and that you are listening.';
+        const projForResume = projectId && resumableProject ? resumableProject : null;
+        const initialText = projForResume?.checkpoint
+          ? 'We are resuming project ' + projectId + '. Checkpoint: ' + (projForResume.checkpoint.note || 'paused') + '. Open questions: ' + (projForResume.openQuestions?.length || 0) + '. Ask one restart question.'
+          : projectId
+            ? 'We are starting idea refinement. ProjectId is ' + projectId + '. Say a brief hello and ask for the idea in one sentence.'
+            : 'Hello. The user is ready. Say a brief hello and that you are listening.';
         ws.send(JSON.stringify({
           clientContent: {
             turns: [{ role: 'user', parts: [{ text: initialText }] }],
@@ -778,13 +816,33 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       btnStart.disabled = false;
     });
 
-    btnStop.addEventListener('click', () => {
+    document.getElementById('btnNewIdea').addEventListener('click', () => {
+      localStorage.removeItem('idearefinement_lastProjectId');
+      document.getElementById('btnNewIdea').style.display = 'none';
+      setStatus('Ready. Click Start for a new idea.');
+      log('Cleared resumable session');
+    });
+
+    btnStop.addEventListener('click', async () => {
       log('===== Stop clicked =====');
+      if (currentProjectId && currentBackendUrl) {
+        const base = currentBackendUrl.replace(/\/$/, '');
+        try {
+          const proj = await fetchProject(base, currentProjectId);
+          if (proj) {
+            const checkpoint = { at: new Date().toISOString(), note: 'Paused by user', openQuestions: proj.openQuestions || [], nextActions: proj.nextActions || [] };
+            await fetch(base + '/projects/' + encodeURIComponent(currentProjectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checkpoint }) });
+            localStorage.setItem('idearefinement_lastProjectId', currentProjectId);
+            log('Checkpoint saved', currentProjectId);
+          }
+        } catch (e) { log('Checkpoint save failed', e); }
+      }
       stopAll();
       btnStop.style.display = 'none';
-      btnStart.style.display = 'block';
-      document.getElementById('btnDoneSpeaking').style.display = 'none';
-      setStatus('Stopped.');
+        btnStart.style.display = 'block';
+        document.getElementById('btnDoneSpeaking').style.display = 'none';
+      document.getElementById('btnNewIdea').style.display = 'block';
+      setStatus('Stopped. Session saved — click Start to resume or New idea to start fresh.');
     });
 
     document.getElementById('btnDoneSpeaking').addEventListener('click', () => {
@@ -802,6 +860,11 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = 'Copy last messages (for support)'; }, 2000);
       }).catch(e => log('Copy failed', e));
+    });
+
+    document.getElementById('workerButtons')?.addEventListener('click', (e) => {
+      const job = e.target?.closest('.worker-btn')?.getAttribute('data-job');
+      if (job) runWorker(job);
     });
   </script>
 </body>
