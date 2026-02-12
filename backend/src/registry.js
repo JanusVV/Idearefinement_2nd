@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const DATA_DIR = process.env.REGISTRY_DATA_DIR || path.join(process.cwd(), 'data', 'projects');
 const DEFAULT_PROJECT = {
   projectId: null,
+  name: '',
   snapshot: '',
   track: 'Personal',
   rigor: 'Light',
@@ -60,7 +61,7 @@ function save(project) {
  */
 function applyPatch(project, patch) {
   const allowed = new Set([
-    'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions',
+    'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions',
     'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals',
     'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt'
   ]);
@@ -94,7 +95,7 @@ function list() {
   return files.map((f) => {
     const id = f.replace(/\.json$/, '');
     const p = load(id);
-    return p ? { projectId: p.projectId, snapshot: p.snapshot, phase: p.phase, lastActiveAt: p.lastActiveAt } : null;
+    return p ? { projectId: p.projectId, name: p.name || '', snapshot: p.snapshot, phase: p.phase, lastActiveAt: p.lastActiveAt } : null;
   }).filter(Boolean);
 }
 
