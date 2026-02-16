@@ -4,9 +4,15 @@
 
 const express = require('express');
 const cors = require('cors');
+const { createScopedLogger } = require('./logger');
 const frameworkRouter = require('./routes/framework');
+const projectsRouter = require('./routes/projects');
+const workersRouter = require('./routes/workers');
+const agentsRouter = require('./routes/agents');
 const conductorPrompt = require('./prompts/conductor');
 const framework = require('./framework');
+
+const log = createScopedLogger('Server');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +23,7 @@ app.use(express.text({ type: 'text/plain' }));
 
 app.use('/projects', projectsRouter);
 app.use('/workers', workersRouter);
+app.use('/agents', agentsRouter);
 app.use('/framework', frameworkRouter);
 
 app.get('/prompts/conductor', (req, res) => {
@@ -32,5 +39,5 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`IdeaRefinement backend listening on port ${PORT}`);
+  log.info(`Backend listening on port ${PORT}`);
 });

@@ -10,11 +10,12 @@ const workers = {
   prdLite: require('../workers/prdLite'),
   competitorScan: require('../workers/competitorScan'),
   riskRegister: require('../workers/riskRegister'),
+  ossDiscovery: require('../workers/ossDiscovery'),
 };
 
 const router = express.Router();
 
-router.post('/:jobType', (req, res) => {
+router.post('/:jobType', async (req, res) => {
   const jobType = req.params.jobType;
   const { projectId, apply } = req.body || {};
 
@@ -26,7 +27,7 @@ router.post('/:jobType', (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   try {
-    const result = worker.run(project);
+    const result = await worker.run(project);
     if (apply && result.suggestedPatch) {
       project = registry.applyPatch(project, { ...result.suggestedPatch, projectId: project.projectId });
       registry.save(project);

@@ -2,5 +2,6 @@
 *.log
 node_modules/
 backend/data/
+backend/verbose-logs/
 voice-agent/local.properties
 voice-agent/web-test/config.js

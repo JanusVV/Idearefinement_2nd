@@ -29,6 +29,7 @@ const DEFAULT_PROJECT = {
   lastActiveAt: null,
   version: 1,
   moduleState: {},
+  agentResults: [],
 };
 
 function ensureDataDir() {
@@ -63,7 +64,7 @@ function applyPatch(project, patch) {
   const allowed = new Set([
     'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions',
     'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals',
-    'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt'
+    'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt', 'agentResults'
   ]);
   const next = { ...project };
   for (const [key, value] of Object.entries(patch)) {
