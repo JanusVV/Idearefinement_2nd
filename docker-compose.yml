@@ -27,22 +27,12 @@ services:
     volumes:
       - ./voice-agent/web-test/config.js:/app/config.js:ro
 
-  caddy:
-    image: caddy:2-alpine
+  tunnel:
+    image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - DOMAIN=${DOMAIN:-localhost}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+    command: tunnel --no-autoupdate --url http://backend:3000
     depends_on:
       - backend
 
 volumes:
   registry-data:
-  caddy-data:
-  caddy-config:

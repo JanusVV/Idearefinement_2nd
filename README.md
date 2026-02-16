@@ -22,6 +22,33 @@ Voice-first idea refinement using the [IdeaFramework v4](Specs/Buildingspecs.txt
 
 4. Open **http://localhost:3001** and click "Start conversation". The conductor will guide you with one question at a time; the **Screen layer** panel shows the current idea snapshot and registry.
 
+## Remote access (Cloudflare Tunnel)
+
+The backend runs behind a **Cloudflare Tunnel** so it can be reached from anywhere — no port forwarding required, proper HTTPS with a valid certificate, works through double NAT and restrictive ISPs.
+
+```bash
+docker compose up -d          # starts backend + tunnel
+docker logs idearefinement_2nd-tunnel-1   # find the public URL
+```
+
+The tunnel provides a URL like `https://<random>.trycloudflare.com`. Use this as your `BACKEND_URL` in the Android app settings. The URL changes when the tunnel container restarts; check the logs for the new one.
+
+> **Permanent URL:** For a stable URL, create a free [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) account, add a domain, and create a named tunnel with a fixed hostname. Replace the quick-tunnel command in `docker-compose.yml` with `tunnel run --token <YOUR_TOKEN>`.
+
+## Android app
+
+The Android app (`voice-agent/`) is a WebView wrapper that loads the web client while providing native services (foreground service for background audio, call screening).
+
+1. Copy `voice-agent/local.properties.example` or create `voice-agent/local.properties`:
+   ```properties
+   sdk.dir=<path-to-android-sdk>
+   GEMINI_API_KEY=<your-gemini-api-key>
+   BACKEND_URL=https://<tunnel-url>.trycloudflare.com
+   BACKEND_API_KEY=<your-backend-api-key>
+   ```
+2. Open `voice-agent/` in Android Studio and build to your device.
+3. The backend URL can also be changed at runtime in the app's **Settings** screen.
+
 ## Without Docker
 
 - **Backend:** `cd backend && npm install && npm start` (listens on port 3000). Set `REGISTRY_DATA_DIR` if you want a custom data path.
@@ -32,8 +59,8 @@ Voice-first idea refinement using the [IdeaFramework v4](Specs/Buildingspecs.txt
 | Path | Purpose |
 |------|--------|
 | `Specs/` | Buildingspecs.txt, IdeaFramework v4 |
-| `voice-agent/` | Cloned Voiceagent (Android + web-test); model set to Gemini 3.0 Flash |
-| `backend/` | Registry API, conductor prompt, workers (PRD-lite, competitor scan) |
+| `voice-agent/` | Android app (WebView hybrid) + web client (`web-test/`); Gemini Live API |
+| `backend/` | Registry API, conductor prompt, document polisher, agent workers |
 | `web-client/` | Dockerfile to serve `voice-agent/web-test` |
 
 ## API

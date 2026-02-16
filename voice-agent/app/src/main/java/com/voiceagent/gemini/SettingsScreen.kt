@@ -18,7 +18,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,13 +129,30 @@ fun SettingsScreen(
     }
 }
 
+/** Build an OkHttpClient that trusts self-signed certificates (for our own backend). */
+private fun trustAllClient(): OkHttpClient {
+    val trustAll = object : X509TrustManager {
+        @Suppress("TrustAllX509TrustManager")
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+        @Suppress("TrustAllX509TrustManager")
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    }
+    val sslContext = SSLContext.getInstance("TLS").apply {
+        init(null, arrayOf<TrustManager>(trustAll), SecureRandom())
+    }
+    return OkHttpClient.Builder()
+        .sslSocketFactory(sslContext.socketFactory, trustAll)
+        .hostnameVerifier { _, _ -> true }
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
+}
+
 /** Simple health check — no dependency on BackendApi. */
 private suspend fun testHealth(baseUrl: String, apiKey: String): Boolean = withContext(Dispatchers.IO) {
     try {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .build()
+        val client = trustAllClient()
         val req = Request.Builder()
             .url("$baseUrl/health")
             .header("Authorization", "Bearer $apiKey")
