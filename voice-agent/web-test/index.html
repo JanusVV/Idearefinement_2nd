@@ -120,6 +120,7 @@
     <details class="screen-detail"><summary>Validation Plan</summary><div id="screenValidationPlan" class="screen-content">—</div></details>
     <details class="screen-detail"><summary>Build Plan</summary><div id="screenBuildPlan" class="screen-content">—</div></details>
     <details class="screen-detail"><summary>Open Questions &amp; Next Actions</summary><div id="screenQuestionsActions" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Agent results</summary><div id="screenAgentResults" class="screen-content">—</div></details>
     <div id="workerButtons" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
       <button type="button" class="worker-btn" data-job="prdLite" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run PRD-lite</button>
       <button type="button" class="worker-btn" data-job="competitorScan" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run competitor scan</button>
@@ -138,12 +139,25 @@
   <button id="btnStop" class="stop" type="button" style="display: none;">Stop</button>
   <button id="btnDoneSpeaking" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border-radius: 8px; cursor: pointer;">Done speaking (send to model)</button>
   <div id="error" class="error-msg" hidden></div>
-  <div id="debugPanel" style="margin-top:1rem; padding:0.75rem; background:#0f172a; border-radius:8px; font-family:monospace; font-size:0.75rem; color:#94a3b8; max-height:220px; overflow-y:auto;">
-    <div><strong>Debug – what the server sent</strong></div>
-    <div id="debugStats">Messages: 0</div>
-    <div style="font-size:0.65rem; color:#64748b; margin-top:0.25rem;">If you spoke and Messages stays 1, the server sent nothing. If it goes up, the keys below show each message.</div>
+  <div id="debugPanel" style="margin-top:1rem; padding:0.75rem; background:#0f172a; border-radius:8px; font-family:monospace; font-size:0.75rem; color:#94a3b8; max-height:260px; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.35rem;">
+      <strong>Session log</strong>
+      <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
+        <select id="logFilter" style="padding:0.15rem 0.3rem; font-size:0.65rem; background:#1e293b; color:#e2e8f0; border:1px solid #334155; border-radius:4px;">
+          <option value="">All</option>
+          <option value="audio">Audio</option>
+          <option value="echo">Echo</option>
+          <option value="ws">WebSocket</option>
+          <option value="agent">Agent</option>
+          <option value="mic">Mic</option>
+          <option value="state">State</option>
+        </select>
+        <button type="button" id="btnCopyDebug" style="padding:0.15rem 0.4rem; font-size:0.65rem; background:#334155; color:#e2e8f0; border:none; border-radius:4px; cursor:pointer;">Copy</button>
+        <button type="button" id="btnDownloadLog" style="padding:0.15rem 0.4rem; font-size:0.65rem; background:#334155; color:#e2e8f0; border:none; border-radius:4px; cursor:pointer;">Download</button>
+      </div>
+    </div>
+    <div id="debugStats" style="font-size:0.65rem; color:#64748b; margin-top:0.25rem;">Messages: 0 · Log entries: 0</div>
     <div id="debugLast" style="margin-top:0.5rem; white-space:pre-wrap; word-break:break-all;"></div>
-    <button type="button" id="btnCopyDebug" style="margin-top:0.5rem; padding:0.25rem 0.5rem; font-size:0.7rem;">Copy last messages (for support)</button>
   </div>
 
   <script type="module">
@@ -180,6 +194,31 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (!parsed || typeof parsed !== 'object') return null;
       const hasAnyKey = REGISTRY_PATCH_KEYS.some(k => Object.prototype.hasOwnProperty.call(parsed, k));
       return hasAnyKey ? parsed : null;
+    }
+
+    const dispatchedAgentSignatures = new Set();
+    function extractAgentDispatch(text) {
+      if (!text || typeof text !== 'string') return null;
+      const m = text.match(/---AGENT---\s*([\s\S]*?)---AGENT---/);
+      if (!m) return null;
+      const firstLine = m[1].trim().split('\n')[0].trim();
+      if (!firstLine) return null;
+      const pipeIdx = firstLine.indexOf('|');
+      const agentId = (pipeIdx >= 0 ? firstLine.slice(0, pipeIdx).trim() : firstLine.trim());
+      const taskDescription = pipeIdx >= 0 ? firstLine.slice(pipeIdx + 1).trim() : '';
+      return { agentId, taskDescription, signature: firstLine };
+    }
+    async function tryDispatchAgentTask(text, projectId, backendUrl) {
+      const d = extractAgentDispatch(text);
+      if (!d || !d.agentId || !projectId || !backendUrl) return;
+      if (dispatchedAgentSignatures.has(d.signature)) return;
+      dispatchedAgentSignatures.add(d.signature);
+      const base = backendUrl.replace(/\/$/, '');
+      try {
+        const r = await fetch(base + '/agents/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, agentId: d.agentId, taskDescription: d.taskDescription }) });
+        if (r.ok) log.agent('Task dispatched', d.agentId, d.taskDescription?.slice(0, 40));
+        else log.agent('Task dispatch failed', r.status);
+      } catch (e) { log.agent('Task dispatch error', e); }
     }
 
     async function tryApplyRegistryPatch(text, projectId, backendUrl) {
@@ -244,6 +283,8 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const q = (project.openQuestions || []);
       const a = (project.nextActions || []);
       set('screenQuestionsActions', (q.length ? 'Open questions:\n' + q.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') + '\n\n' : '') + (a.length ? 'Next actions:\n' + a.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') : '') || '—');
+      const agentRes = (project.agentResults || []);
+      set('screenAgentResults', agentRes.length ? agentRes.slice(-5).map(ar => (ar.agentName || ar.agentId) + ' (' + (ar.at || '').slice(0, 19) + '): ' + (typeof ar.result === 'object' && ar.result && (ar.result.note || ar.result.prdLite) ? (ar.result.note || String(ar.result.prdLite).slice(0, 200)) : JSON.stringify(ar.result).slice(0, 150))).join('\n\n') : '—');
       const reg = document.getElementById('screenRegistry');
       if (reg) reg.textContent = JSON.stringify(project, null, 2);
     }
@@ -343,16 +384,68 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (btn) btn.disabled = false;
     }
 
+    // ── Categorized session log ──────────────────────────────────────
+    const LOG_BUFFER_MAX = 5000;
+    const sessionLog = [];
+    let _activeLogFilter = '';
+
     function log(...args) {
       if (!VERBOSE) return;
-      const ts = new Date().toISOString();
-      console.log(`[Live][${ts}]`, ...args);
+      _logEntry('general', ...args);
     }
+    log.audio  = (...args) => { if (VERBOSE) _logEntry('audio', ...args); };
+    log.echo   = (...args) => { if (VERBOSE) _logEntry('echo', ...args); };
+    log.ws     = (...args) => { if (VERBOSE) _logEntry('ws', ...args); };
+    log.agent  = (...args) => { if (VERBOSE) _logEntry('agent', ...args); };
+    log.mic    = (...args) => { if (VERBOSE) _logEntry('mic', ...args); };
+    log.state  = (...args) => { if (VERBOSE) _logEntry('state', ...args); };
+
+    function _logEntry(cat, ...args) {
+      const ts = new Date().toISOString();
+      const parts = args.map(a => {
+        if (a instanceof Error) return a.message;
+        if (typeof a === 'object' && a !== null) {
+          try { const s = JSON.stringify(a); return s.length > 500 ? s.slice(0, 500) + '…' : s; } catch (_) { return String(a); }
+        }
+        return String(a);
+      });
+      const msg = parts.join(' ');
+      const entry = { ts, cat, msg };
+      sessionLog.push(entry);
+      if (sessionLog.length > LOG_BUFFER_MAX) sessionLog.splice(0, sessionLog.length - LOG_BUFFER_MAX);
+      console.log(`[${cat.toUpperCase()}][${ts}]`, ...args);
+      _renderLogPanel();
+    }
+
+    function _renderLogPanel() {
+      const statsEl = document.getElementById('debugStats');
+      const lastEl = document.getElementById('debugLast');
+      if (!statsEl || !lastEl) return;
+      const filter = _activeLogFilter;
+      const filtered = filter ? sessionLog.filter(e => e.cat === filter) : sessionLog;
+      const tail = filtered.slice(-30);
+      statsEl.textContent = 'Log entries: ' + sessionLog.length + (filter ? ' (showing ' + filtered.length + ' "' + filter + '")' : '');
+      lastEl.textContent = tail.map(e => '[' + e.cat.toUpperCase() + '] ' + e.ts.slice(11, 23) + ' ' + e.msg).join('\n');
+      const panel = document.getElementById('debugPanel');
+      if (panel) panel.scrollTop = panel.scrollHeight;
+    }
+
+    function _downloadSessionLog() {
+      const text = sessionLog.map(e => `[${e.ts}] [${e.cat.toUpperCase()}] ${e.msg}`).join('\n');
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'session-log-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     function logPayload(label, obj) {
       if (!VERBOSE) return;
       const s = JSON.stringify(obj);
       const truncated = s.length > 2000 ? s.slice(0, 2000) + '...[truncated ' + (s.length - 2000) + ' chars]' : s;
-      log(label, truncated);
+      log.ws(label, truncated);
     }
 
     log('Config:', { LIVE_WS, MODEL, SEND_RATE, RECV_RATE });
@@ -417,8 +510,6 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     function pushDebug(msgNum, msg) {
       lastMessages.push({ n: msgNum, keys: Object.keys(msg), payload: stripForDebug(msg) });
       if (lastMessages.length > MAX_LAST) lastMessages.shift();
-      if (debugStatsEl) debugStatsEl.textContent = 'Messages: ' + msgNum;
-      if (debugLastEl) debugLastEl.textContent = lastMessages.map(m => '#' + m.n + ' keys: ' + m.keys.join(', ')).join('\n');
     }
 
     function setStatus(text, className = '') {
@@ -457,14 +548,18 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         modelTranscriptBuffer = '';
       }
     }
-    function scheduleModelSpeakingEnd(durationMs) {
+    function scheduleModelSpeakingEnd(_durationMs) {
       if (modelSpeakingEndTimer) clearTimeout(modelSpeakingEndTimer);
+      const ctx = window.playbackCtx;
+      const remainingMs = ctx
+        ? Math.max(0, (nextPlaybackTime - ctx.currentTime) * 1000)
+        : (_durationMs || 0);
       modelSpeakingEndTimer = setTimeout(() => {
         modelSpeakingEndTimer = null;
         modelIsSpeaking = false;
         lastModelSpeakingEndTime = Date.now();
-        log('modelIsSpeaking = false (playback window ended), grace period started');
-      }, Math.max(400, (durationMs || 0) + 400));
+        log.state('modelIsSpeaking = false (playback window ended), grace period started');
+      }, remainingMs + 600);
     }
 
     let ws = null;
@@ -484,13 +579,15 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let modelFlushTimer = null;
     const TRANSCRIPT_FLUSH_MS = 700;
     /** Ignore inputTranscription for this long after model output/audio (avoids attributing echoed model speech to user) */
-    const ECHO_SUPPRESS_MS = 4000;
+    const ECHO_SUPPRESS_MS = 800;
     /** After model stops, brief mute so we don't send echo; then we only send when user is speaking (see send logic) */
-    const POST_SPEECH_GRACE_MS = 1000;
+    const POST_SPEECH_GRACE_MS = 500;
     /** Min length for content-based echo match (avoid suppressing short real user replies like "yes") */
     const ECHO_MATCH_MIN_LEN = 20;
     /** Keep this much recent model transcript for content-based echo detection across multiple model turns */
     const RECENT_MODEL_TRANSCRIPT_MAX = 1500;
+    /** RMS threshold: if mic level is above this during grace period, treat as real user speech (not echo) */
+    const ECHO_GATE_RMS_THRESHOLD = 0.02;
     /** Last time we received model output (outputTranscription or model audio); used to suppress echo in user transcript */
     let lastModelOutputTime = 0;
     /** When model speaking ended (playback window); used for POST_SPEECH_GRACE_MS */
@@ -499,6 +596,38 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let recentModelTranscript = '';
     /** Next scheduled start time for model audio (AudioContext time) so chunks play in order without overlapping */
     let nextPlaybackTime = 0;
+    /** Agent results: taskIds we have already sent to the conductor via clientContent */
+    const deliveredTaskIds = new Set();
+    let agentResultsPollInterval = null;
+    const AGENT_RESULTS_POLL_MS = 5000;
+    function formatAgentResultSummary(result) {
+      if (result == null) return '(no result)';
+      if (typeof result === 'string') return result.slice(0, 600);
+      if (typeof result === 'object') {
+        if (result.note) return result.note;
+        if (result.prdLite) return String(result.prdLite).slice(0, 600);
+        if (result.suggestedNextStep) return result.note ? result.note + '\n' + result.suggestedNextStep : result.suggestedNextStep;
+        return JSON.stringify(result).slice(0, 600);
+      }
+      return String(result).slice(0, 600);
+    }
+    async function pollAgentResults() {
+      if (!currentProjectId || !currentBackendUrl || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      try {
+        const r = await fetch(base + '/agents/tasks/list?projectId=' + encodeURIComponent(currentProjectId) + '&status=completed');
+        if (!r.ok) return;
+        const tasks = await r.json();
+        for (const task of tasks) {
+          if (task.status !== 'completed' || deliveredTaskIds.has(task.taskId)) continue;
+          deliveredTaskIds.add(task.taskId);
+          const summary = formatAgentResultSummary(task.result);
+          const msg = '[System: Agent "' + (task.agentName || task.agentId) + '" has returned: ' + summary + ']';
+          ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: msg }] }], turnComplete: true } }));
+          log.agent('Injected agent result to conductor', task.agentName || task.agentId);
+        }
+      } catch (e) { log.agent('pollAgentResults error', e); }
+    }
 
     function normalizeForEchoMatch(s) {
       return (s || '')
@@ -681,7 +810,10 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             lastModelOutputTime = Date.now();
             log('outputTranscription:', outputT.text?.slice(0, 80));
             modelTranscriptBuffer += outputT.text;
-            if (currentProjectId && currentBackendUrl) tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+            if (currentProjectId && currentBackendUrl) {
+              tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+              tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+            }
             recentModelTranscript += outputT.text;
             if (recentModelTranscript.length > RECENT_MODEL_TRANSCRIPT_MAX) {
               recentModelTranscript = recentModelTranscript.slice(-RECENT_MODEL_TRANSCRIPT_MAX);
@@ -693,10 +825,19 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             const now = Date.now();
             const inTimeWindow = now - lastModelOutputTime < ECHO_SUPPRESS_MS;
             const matchesModel = isLikelyEchoFromModel(inputT.text);
-            if (inTimeWindow || matchesModel) {
-              log('inputTranscription (ignored, likely echo)', inTimeWindow ? 'time' : 'content:', inputT.text?.slice(0, 80));
+            const currentRms = micLevel.rms || 0;
+            const userSpeakingLoud = currentRms > ECHO_GATE_RMS_THRESHOLD;
+            // Content match always suppresses (it's definitely echo)
+            // Time window only suppresses if mic level is low (likely echo, not real speech)
+            if (matchesModel) {
+              log.echo('inputTranscription SUPPRESSED reason=content-match', inputT.text?.slice(0, 80));
+            } else if (inTimeWindow && !userSpeakingLoud) {
+              log.echo('inputTranscription SUPPRESSED reason=time-window (low rms=' + currentRms.toFixed(4) + ')', inputT.text?.slice(0, 80));
             } else {
-              log('inputTranscription:', inputT.text?.slice(0, 80));
+              if (inTimeWindow && userSpeakingLoud) {
+                log.echo('inputTranscription ALLOWED despite time-window (high rms=' + currentRms.toFixed(4) + ')', inputT.text?.slice(0, 80));
+              }
+              log.mic('inputTranscription:', inputT.text?.slice(0, 80));
               userTranscriptBuffer += inputT.text;
               if (userFlushTimer) clearTimeout(userFlushTimer);
               userFlushTimer = setTimeout(flushUserTranscript, TRANSCRIPT_FLUSH_MS);
@@ -716,7 +857,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
                 modelIsSpeaking = true;
                 const numSamples = atob(data).length / 2;
                 const durationMs = (numSamples / RECV_RATE) * 1000;
-                log('playing audio chunk, base64 length=', data?.length, 'durationMs=', Math.round(durationMs));
+                log.audio('playing chunk b64len=' + data?.length + ' durationMs=' + Math.round(durationMs) + ' queuedMs=' + Math.round(Math.max(0, (nextPlaybackTime - (window.playbackCtx?.currentTime || 0)) * 1000)));
                 playPCM24k(data);
                 scheduleModelSpeakingEnd(durationMs);
               }
@@ -724,8 +865,23 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           }
           const generationComplete = c ? (c.generationComplete || c.generation_complete) : false;
           if (generationComplete) {
-            nextPlaybackTime = 0;
-            if (modelTranscriptBuffer && currentProjectId && currentBackendUrl) tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+            // Schedule end based on remaining queued audio, then reset
+            const ctx = window.playbackCtx;
+            const remainingMs = ctx
+              ? Math.max(0, (nextPlaybackTime - ctx.currentTime) * 1000)
+              : 0;
+            if (modelSpeakingEndTimer) clearTimeout(modelSpeakingEndTimer);
+            modelSpeakingEndTimer = setTimeout(() => {
+              modelSpeakingEndTimer = null;
+              modelIsSpeaking = false;
+              nextPlaybackTime = 0;
+              lastModelSpeakingEndTime = Date.now();
+              log.state('modelIsSpeaking = false (generation complete + playback drained)');
+            }, remainingMs + 600);
+            if (modelTranscriptBuffer && currentProjectId && currentBackendUrl) {
+              tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+              tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+            }
           }
           if (c && !inputT?.text && !outputT?.text && (!parts || !parts.length)) {
             log('serverContent but no transcript/audio:', Object.keys(c));
@@ -735,15 +891,15 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         };
 
         ws.onerror = (e) => {
-          log('ONERROR:', e);
-          log('ONERROR type:', e?.type, 'target:', e?.target?.readyState);
+          log.ws('ONERROR:', e);
+          log.ws('ONERROR type:', e?.type, 'target:', e?.target?.readyState);
           clearTimeout(t);
           finish(new Error('WebSocket error'));
         };
 
         ws.onclose = (ev) => {
-          log('ONCLOSE: code=', ev.code, 'reason=', ev.reason, 'wasClean=', ev.wasClean);
-          log('ONCLOSE full event:', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
+          log.ws('ONCLOSE: code=', ev.code, 'reason=', ev.reason, 'wasClean=', ev.wasClean);
+          log.ws('ONCLOSE full event:', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
           clearTimeout(t);
           if (!setupDone && ev.code !== 1000) finish(new Error('Connection closed: ' + (ev.reason || ev.code)));
         };
@@ -756,8 +912,9 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const audioConstraints = {
         channelCount: 1,
         sampleRate: SEND_RATE,
-        autoGainControl: false,
-        echoCancellation: false
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true
       };
       if (preferredDeviceId) audioConstraints.deviceId = { exact: preferredDeviceId };
       log('startMic: requesting getUserMedia', preferredDeviceId ? 'deviceId=' + preferredDeviceId.slice(0, 20) + '...' : 'default');
@@ -808,20 +965,25 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           lastWasSpeaking = true;
           if (!didLogSpeaking) {
             didLogSpeaking = true;
-            log('startMic: speech detected (rms=', rms.toFixed(4), '), silence timer will start when you stop');
+            log.mic('speech detected rms=' + rms.toFixed(4) + ', silence timer will start when you stop');
           }
         } else {
           if (lastWasSpeaking) {
             if (silenceStart === null) silenceStart = now;
             else if (now - silenceStart >= SILENCE_MS) {
-              log('startMic: silence detected', Math.round((now - silenceStart) / 1000) + 's, sending audioStreamEnd');
+              log.mic('silence detected ' + Math.round((now - silenceStart) / 1000) + 's, sending audioStreamEnd');
               ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
               silenceStart = null;
               lastWasSpeaking = false;
             }
           }
         }
-        if (inGrace || !speaking) return;
+        // During grace period, allow loud speech through (energy gate) — only block quiet echo-level input
+        if (inGrace && rms > ECHO_GATE_RMS_THRESHOLD) {
+          log.echo('grace-period override: rms=' + rms.toFixed(4) + ' above gate threshold, treating as real speech');
+        } else if (inGrace || !speaking) {
+          return;
+        }
         const pcm16 = new Int16Array(samples.length);
         for (let i = 0; i < samples.length; i++) {
           const s = Math.max(-1, Math.min(1, samples[i]));
@@ -880,6 +1042,10 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
     function stopAll() {
       log('stopAll: clearing processor, mediaStream, ws');
+      if (agentResultsPollInterval) {
+        clearInterval(agentResultsPollInterval);
+        agentResultsPollInterval = null;
+      }
       if (modelSpeakingEndTimer) {
         clearTimeout(modelSpeakingEndTimer);
         modelSpeakingEndTimer = null;
@@ -1001,9 +1167,17 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
                 (s.openQuestions && s.openQuestions.length) ? 'Open questions: ' + s.openQuestions.join('; ') : '',
                 (s.nextActions && s.nextActions.length) ? 'Next actions: ' + s.nextActions.join('; ') : '',
                 (s.validationPlan && s.validationPlan.trim()) ? 'Validation plan: ' + String(s.validationPlan).trim().slice(0, 200) : '',
-                (s.buildPlan && s.buildPlan.trim()) ? 'Build plan: ' + String(s.buildPlan).trim().slice(0, 200) : ''
+                (s.buildPlan && s.buildPlan.trim()) ? 'Build plan: ' + String(s.buildPlan).trim().slice(0, 200) : '',
+                (s.agentResults && s.agentResults.length) ? 'Recent agent results: ' + s.agentResults.slice(-3).map(ar => (ar.agentName || ar.agentId) + ': ' + (typeof ar.result === 'object' && ar.result && ar.result.note ? ar.result.note : JSON.stringify(ar.result).slice(0, 150))).join(' | ') : ''
               ].filter(Boolean);
               conductorPrompt = conductorPrompt + '\n\n' + stateLines.join('\n');
+            }
+            const agentsRes = await fetch(base + '/agents');
+            if (agentsRes.ok) {
+              const agentsList = await agentsRes.json();
+              if (agentsList.length) {
+                conductorPrompt = conductorPrompt + '\n\nAvailable agents (output ---AGENT--- agentId | task description ---AGENT--- to delegate):\n' + agentsList.map(a => a.agentId + ' - ' + (a.name || a.agentId) + ': ' + (a.description || '')).join('\n');
+              }
             }
           }
         } catch (e) { log('Backend setup failed', e); }
@@ -1038,6 +1212,10 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           }
         }
         await startMic(ws);
+        if (currentProjectId && currentBackendUrl) {
+          deliveredTaskIds.clear();
+          agentResultsPollInterval = setInterval(pollAgentResults, AGENT_RESULTS_POLL_MS);
+        }
         setStatus('In conversation – speak then click "Done speaking" or wait 1s silence', 'active');
         btnStart.style.display = 'none';
         btnStop.style.display = 'block';
@@ -1088,13 +1266,21 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     });
 
     document.getElementById('btnCopyDebug').addEventListener('click', () => {
-      const text = JSON.stringify(lastMessages, null, 2);
+      const filter = _activeLogFilter;
+      const entries = filter ? sessionLog.filter(e => e.cat === filter) : sessionLog;
+      const text = entries.map(e => `[${e.ts}] [${e.cat.toUpperCase()}] ${e.msg}`).join('\n');
       navigator.clipboard.writeText(text).then(() => {
-        log('Copied', lastMessages.length, 'messages to clipboard');
         const btn = document.getElementById('btnCopyDebug');
         btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = 'Copy last messages (for support)'; }, 2000);
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
       }).catch(e => log('Copy failed', e));
+    });
+
+    document.getElementById('btnDownloadLog').addEventListener('click', _downloadSessionLog);
+
+    document.getElementById('logFilter').addEventListener('change', (e) => {
+      _activeLogFilter = e.target.value;
+      _renderLogPanel();
     });
 
     document.getElementById('workerButtons')?.addEventListener('click', (e) => {

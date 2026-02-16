@@ -20,11 +20,12 @@ import java.util.UUID
 import kotlin.math.sqrt
 
 private const val TRANSCRIPT_FLUSH_MS = 700L
-private const val ECHO_SUPPRESS_MS = 2500L
+private const val ECHO_SUPPRESS_MS = 800L
 private const val ECHO_MATCH_MIN_LEN = 20
 private const val RECENT_MODEL_TRANSCRIPT_MAX = 1500
 private const val SILENCE_MS = 1000L
 private const val VOLUME_THRESHOLD = 0.003
+private const val ECHO_GATE_RMS_THRESHOLD = 0.02
 
 class GeminiViewModel : ViewModel() {
 
@@ -60,6 +61,7 @@ class GeminiViewModel : ViewModel() {
     private var modelFlushJob: Job? = null
     private var silenceStartMs: Long? = null
     private var lastWasSpeaking = false
+    @Volatile private var currentMicRms = 0.0
 
     fun hasRecordAudioPermissionGranted(hasPermission: Boolean): Boolean = hasPermission
 
@@ -148,7 +150,10 @@ class GeminiViewModel : ViewModel() {
                                 val now = System.currentTimeMillis()
                                 val inTimeWindow = now - lastModelOutputTime < ECHO_SUPPRESS_MS
                                 val matchesModel = isLikelyEchoFromModel(text)
-                                if (!inTimeWindow && !matchesModel) {
+                                val userSpeakingLoud = currentMicRms > ECHO_GATE_RMS_THRESHOLD
+                                // Content match always suppresses; time window only suppresses if mic is quiet
+                                val suppress = matchesModel || (inTimeWindow && !userSpeakingLoud)
+                                if (!suppress) {
                                     userTranscriptBuffer += text
                                     userFlushJob?.cancel()
                                     userFlushJob = launch { delay(TRANSCRIPT_FLUSH_MS); flushUserTranscript() }
@@ -195,6 +200,7 @@ class GeminiViewModel : ViewModel() {
         val started = audioHandler.startRecording { chunk ->
             viewModelScope.launch(Dispatchers.IO) {
                 val rms = rmsFromPcm16(chunk)
+                currentMicRms = rms
                 val speaking = rms > VOLUME_THRESHOLD
                 val now = System.currentTimeMillis()
                 if (speaking) {
