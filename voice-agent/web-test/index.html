@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%236366f1' rx='6'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='white'>V</text></svg>" />
+  <title>Voice Agent – Web test (Gemini Live API, no Firebase)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 1rem;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .status { font-size: 0.875rem; color: #888; margin-bottom: 1rem; }
+    .status.active { color: #4ade80; }
+    .status.error { color: #f87171; }
+    .transcript {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 1rem;
+      min-height: 200px;
+      max-height: 50vh;
+      overflow-y: auto;
+      margin-bottom: 1rem;
+    }
+    .transcript:empty::before { content: "Transcript will appear here…"; color: #666; }
+    .line { margin-bottom: 0.5rem; }
+    .line.user { color: #93c5fd; }
+    .line.model { color: #86efac; }
+    .line .label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.8; margin-right: 0.5rem; }
+    button {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      max-width: 280px;
+      display: block;
+      margin: 0 auto;
+    }
+    button.primary { background: #6366f1; color: white; }
+    button.primary:hover { background: #4f46e5; }
+    button.stop { background: #dc2626; color: white; }
+    button.stop:hover { background: #b91c1c; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error-msg { background: #450a0a; color: #fca5a5; padding: 0.75rem; border-radius: 8px; margin-top: 1rem; font-size: 0.875rem; }
+    .config-warning { background: #422006; color: #fcd34d; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.875rem; }
+    .mic-meter { margin: 0.75rem 0; padding: 0.5rem; background: #0f172a; border-radius: 8px; }
+    .mic-meter .label { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.25rem; }
+    .mic-meter .bar-wrap { height: 12px; background: #1e293b; border-radius: 6px; overflow: hidden; }
+    .mic-meter .bar { height: 100%; background: linear-gradient(90deg, #22c55e, #eab308); border-radius: 6px; width: 0%; transition: width 0.05s; }
+    .mic-meter .bar.speaking { background: #22c55e; }
+    .mic-meter .value { font-size: 0.7rem; color: #64748b; margin-top: 0.25rem; font-family: monospace; }
+    .mic-select-wrap { margin-bottom: 1rem; }
+    .mic-select-wrap label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.35rem; }
+    .mic-select-wrap select { width: 100%; max-width: 360px; padding: 0.5rem; font-size: 0.875rem; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; }
+    .mic-select-wrap button { margin-left: 0.5rem; padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; }
+    .mic-select-wrap button:hover { background: #475569; }
+    .screen-layer { border: 1px solid #334155; }
+    .screen-detail { margin-top: 0.5rem; }
+    .screen-detail summary { cursor: pointer; color: #e2e8f0; font-size: 0.85rem; }
+    .screen-content { margin-top: 0.25rem; padding-left: 0.25rem; color: #94a3b8; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; }
+    .screen-project-name { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+    .screen-project-name:hover { color: #e2e8f0; }
+    .framework-panel { margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+    .framework-panel summary { cursor: pointer; color: #e2e8f0; font-size: 0.9rem; }
+    .framework-panel textarea { width: 100%; min-height: 280px; margin-top: 0.5rem; padding: 0.5rem; font-size: 0.8rem; font-family: inherit; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; resize: vertical; box-sizing: border-box; }
+    .framework-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .framework-actions button { padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; }
+    .framework-actions button:hover { background: #475569; }
+    .framework-actions button.primary { background: #6366f1; color: white; }
+    .framework-actions button.primary:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <h1>Voice Agent – Web test (no Firebase)</h1>
+  <p class="status" id="status">Ready. Set API key in config.js and start.</p>
+  <div id="configWarning" class="config-warning" hidden>Create <code>config.js</code> from <code>config.example.js</code> and set <code>GEMINI_API_KEY</code>.</div>
+  <div class="mic-select-wrap">
+    <label for="micSelect">Microphone</label>
+    <select id="micSelect">
+      <option value="">Default (browser choice)</option>
+    </select>
+    <button type="button" id="btnRefreshMic">Refresh list</button>
+  </div>
+  <div id="frameworkSection" class="framework-panel" style="display: none;">
+    <details>
+      <summary>Refinement framework (view / edit)</summary>
+      <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.35rem;">Phases, modules, and triggers that guide the conductor. Changes apply to new conversations.</p>
+      <textarea id="frameworkText" placeholder="Load to fetch current framework…"></textarea>
+      <div class="framework-actions">
+        <button type="button" id="btnFrameworkLoad">Load</button>
+        <button type="button" id="btnFrameworkSave" class="primary">Save</button>
+      </div>
+    </details>
+  </div>
+  <div id="projectsSection" style="display: none; margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">Projects</div>
+    <select id="projectsSelect" style="width: 100%; max-width: 360px; padding: 0.5rem; font-size: 0.875rem; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px;">
+      <option value="">— Select project —</option>
+    </select>
+    <button type="button" id="btnRefreshProjects" style="margin-top: 0.5rem; padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Refresh list</button>
+  </div>
+  <div class="transcript" id="transcript"></div>
+  <div id="screenLayer" class="screen-layer" style="display: none; margin-bottom: 1rem; background: #0f172a; border-radius: 8px; padding: 1rem; font-size: 0.875rem;">
+    <div style="font-weight: bold; margin-bottom: 0.5rem;">Screen layer · <span id="screenProjectName" class="screen-project-name" style="font-weight: normal; color: #94a3b8;" title="Click to edit name">—</span></div>
+    <details class="screen-detail" open><summary>Idea Snapshot</summary><div id="screenSnapshot" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Track &amp; Rigor</summary><div id="screenTrackBlock" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Constraints</summary><div id="screenConstraints" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Current Phase &amp; Progress</summary><div id="screenPhaseBlock" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>MVP + Non-goals</summary><div id="screenMvp" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Assumptions &amp; Risks</summary><div id="screenRisks" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Validation Plan</summary><div id="screenValidationPlan" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Build Plan</summary><div id="screenBuildPlan" class="screen-content">—</div></details>
+    <details class="screen-detail"><summary>Open Questions &amp; Next Actions</summary><div id="screenQuestionsActions" class="screen-content">—</div></details>
+    <div id="workerButtons" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button type="button" class="worker-btn" data-job="prdLite" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run PRD-lite</button>
+      <button type="button" class="worker-btn" data-job="competitorScan" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run competitor scan</button>
+      <button type="button" class="worker-btn" data-job="riskRegister" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run risk register</button>
+    </div>
+    <details class="screen-detail" style="margin-top: 0.5rem;"><summary>Full registry</summary><pre id="screenRegistry" class="screen-content" style="white-space: pre-wrap; word-break: break-all; font-size: 0.7rem; margin-top: 0.25rem;"></pre></details>
+  </div>
+  <div id="micMeter" class="mic-meter" style="display: none;">
+    <div class="label">Mic level</div>
+    <div id="micDevice" class="value" style="margin-bottom: 0.25rem; color: #94a3b8;">Microphone: —</div>
+    <div class="bar-wrap"><div id="micBar" class="bar" role="meter" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
+    <div id="micValue" class="value">—</div>
+  </div>
+  <button id="btnStart" class="primary" type="button">Start conversation</button>
+  <button id="btnNewIdea" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: none; border-radius: 8px; cursor: pointer;">New idea</button>
+  <button id="btnStop" class="stop" type="button" style="display: none;">Stop</button>
+  <button id="btnDoneSpeaking" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border-radius: 8px; cursor: pointer;">Done speaking (send to model)</button>
+  <div id="error" class="error-msg" hidden></div>
+  <div id="debugPanel" style="margin-top:1rem; padding:0.75rem; background:#0f172a; border-radius:8px; font-family:monospace; font-size:0.75rem; color:#94a3b8; max-height:220px; overflow-y:auto;">
+    <div><strong>Debug – what the server sent</strong></div>
+    <div id="debugStats">Messages: 0</div>
+    <div style="font-size:0.65rem; color:#64748b; margin-top:0.25rem;">If you spoke and Messages stays 1, the server sent nothing. If it goes up, the keys below show each message.</div>
+    <div id="debugLast" style="margin-top:0.5rem; white-space:pre-wrap; word-break:break-all;"></div>
+    <button type="button" id="btnCopyDebug" style="margin-top:0.5rem; padding:0.25rem 0.5rem; font-size:0.7rem;">Copy last messages (for support)</button>
+  </div>
+
+  <script type="module">
+    const LIVE_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+    // Use a Live API–supported model. gemini-3.0-flash is not yet available for bidiGenerateContent.
+const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+    const SEND_RATE = 16000;
+    const RECV_RATE = 24000;
+    const VERBOSE = true;
+
+    let currentProjectId = null;
+    let currentBackendUrl = null;
+
+    const REGISTRY_PATCH_KEYS = ['projectId', 'switchToProjectName', 'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions', 'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals', 'validationPlan', 'buildPlan', 'moduleState'];
+    function extractJsonPatch(text) {
+      if (!text || typeof text !== 'string') return null;
+      const m = text.match(/---JSON---\s*([\s\S]*?)---JSON---/);
+      if (!m) return null;
+      const raw = m[1].trim();
+      let parsed = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (_) {
+        const objStart = raw.indexOf('{');
+        if (objStart !== -1) {
+          let depth = 0, end = -1;
+          for (let i = objStart; i < raw.length; i++) {
+            if (raw[i] === '{') depth++;
+            else if (raw[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+          }
+            if (end !== -1) try { parsed = JSON.parse(raw.slice(objStart, end + 1)); } catch (_) {}
+        }
+      }
+      if (!parsed || typeof parsed !== 'object') return null;
+      const hasAnyKey = REGISTRY_PATCH_KEYS.some(k => Object.prototype.hasOwnProperty.call(parsed, k));
+      return hasAnyKey ? parsed : null;
+    }
+
+    async function tryApplyRegistryPatch(text, projectId, backendUrl) {
+      const patch = extractJsonPatch(text);
+      if (!patch || !backendUrl) return;
+      const base = backendUrl.replace(/\/$/, '');
+      try {
+        if (patch.switchToProjectName) {
+          const r = await fetch(base + '/projects');
+          const list = r.ok ? await r.json() : [];
+          const name = (patch.switchToProjectName + '').trim().toLowerCase();
+          const found = list.find(p => (p.name || '').trim().toLowerCase() === name || (p.name || '').toLowerCase().includes(name) || name.includes((p.name || '').toLowerCase()));
+          if (found) {
+            await loadProjectIntoUI(found.projectId);
+            await refreshProjectsList();
+            syncProjectsSelectToCurrent();
+            log('Switched to project by name:', found.name || found.projectId);
+          }
+        }
+        if (!projectId) return;
+        const patchForBackend = { ...patch };
+        delete patchForBackend.switchToProjectName;
+        if (Object.keys(patchForBackend).length === 0) return;
+        const res = await fetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patchForBackend) });
+        if (!res.ok) { log('Registry PATCH failed', res.status); return; }
+        const project = await res.json();
+        updateScreenLayer(project);
+        await refreshProjectsList();
+        syncProjectsSelectToCurrent();
+        log('Registry updated, projectId=', projectId);
+      } catch (e) { log('Registry PATCH error', e); }
+    }
+
+    function syncProjectsSelectToCurrent() {
+      const select = document.getElementById('projectsSelect');
+      if (select && currentProjectId) {
+        select.value = currentProjectId;
+      }
+    }
+
+    function updateScreenLayer(project) {
+      const el = document.getElementById('screenLayer');
+      if (!el) return;
+      el.style.display = 'block';
+      const nameEl = document.getElementById('screenProjectName');
+      if (nameEl) {
+        nameEl.textContent = (project.name || '').trim() || 'Click to add name';
+        nameEl.dataset.projectId = project.projectId || '';
+      }
+      const set = (id, text) => { const e = document.getElementById(id); if (e) e.textContent = text || '—'; };
+      set('screenSnapshot', project.snapshot);
+      set('screenTrackBlock', (project.track || '—') + ' / ' + (project.rigor || '—') + (project.phase != null ? '  ·  Phase ' + project.phase : ''));
+      set('screenConstraints', Array.isArray(project.constraints) ? project.constraints.join('\n') : (project.constraints || ''));
+      set('screenPhaseBlock', 'Phase ' + (project.phase != null ? project.phase : '—') + (project.lastActiveAt ? '\nLast active: ' + project.lastActiveAt : ''));
+      set('screenMvp', ('MVP: ' + (project.mvp || '—') + '\n\nNon-goals: ' + (project.nonGoals || '—')).trim());
+      const risksStr = Array.isArray(project.risks) && project.risks.length
+        ? project.risks.map(r => (typeof r === 'object' && r !== null && (r.label || r.id)) ? (r.label || r.id) + (r.mitigation ? ' — ' + r.mitigation : '') : String(r)).join('\n')
+        : '';
+      set('screenRisks', risksStr);
+      set('screenValidationPlan', project.validationPlan);
+      set('screenBuildPlan', project.buildPlan);
+      const q = (project.openQuestions || []);
+      const a = (project.nextActions || []);
+      set('screenQuestionsActions', (q.length ? 'Open questions:\n' + q.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') + '\n\n' : '') + (a.length ? 'Next actions:\n' + a.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') : '') || '—');
+      const reg = document.getElementById('screenRegistry');
+      if (reg) reg.textContent = JSON.stringify(project, null, 2);
+    }
+
+    async function fetchProject(backendUrl, projectId) {
+      const base = (backendUrl || currentBackendUrl || '').replace(/\/$/, '');
+      if (!base || !projectId) return null;
+      try {
+        const r = await fetch(base + '/projects/' + encodeURIComponent(projectId));
+        return r.ok ? await r.json() : null;
+      } catch (_) { return null; }
+    }
+
+    async function showProjectsSection() {
+      const el = document.getElementById('projectsSection');
+      const frameworkEl = document.getElementById('frameworkSection');
+      if (currentBackendUrl) {
+        if (frameworkEl) frameworkEl.style.display = 'block';
+        if (el) {
+          el.style.display = 'block';
+          await refreshProjectsList();
+          syncProjectsSelectToCurrent();
+        }
+      }
+    }
+
+    async function loadFramework() {
+      if (!currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const ta = document.getElementById('frameworkText');
+      if (!ta) return;
+      try {
+        const r = await fetch(base + '/framework');
+        if (r.ok) ta.value = await r.text();
+        else setStatus('Failed to load framework: ' + r.status, 'error');
+      } catch (e) { log('Load framework failed', e); setStatus('Load framework failed', 'error'); }
+    }
+
+    async function saveFramework() {
+      if (!currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const ta = document.getElementById('frameworkText');
+      if (!ta) return;
+      try {
+        const r = await fetch(base + '/framework', { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: ta.value });
+        if (r.ok) { setStatus('Framework saved.'); }
+        else { const err = await r.json().catch(() => ({})); setStatus('Save failed: ' + (err.error || r.status), 'error'); }
+      } catch (e) { log('Save framework failed', e); setStatus('Save failed', 'error'); }
+    }
+
+    async function refreshProjectsList() {
+      if (!currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const select = document.getElementById('projectsSelect');
+      if (!select) return;
+      try {
+        const r = await fetch(base + '/projects');
+        const list = r.ok ? await r.json() : [];
+        select.innerHTML = '<option value="">— Select project —</option>';
+        list.sort((a, b) => new Date(b.lastActiveAt || 0) - new Date(a.lastActiveAt || 0));
+        list.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.projectId;
+          const raw = (p.name || p.snapshot || '').trim();
+          const label = raw || ('Untitled idea · ' + (p.projectId || '').slice(0, 8));
+          opt.textContent = label.length > 60 ? label.slice(0, 60) + '…' : label;
+          select.appendChild(opt);
+        });
+      } catch (e) { log('Refresh projects failed', e); }
+    }
+
+    async function loadProjectIntoUI(projectId) {
+      if (!projectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const proj = await fetchProject(base, projectId);
+      if (!proj) return;
+      currentProjectId = projectId;
+      localStorage.setItem('idearefinement_lastProjectId', projectId);
+      updateScreenLayer(proj);
+      document.getElementById('screenLayer').style.display = 'block';
+      setStatus('Switched to project. Click Start to resume.');
+      log('Loaded project', projectId);
+    }
+
+    async function runWorker(jobType) {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const btn = document.querySelector('.worker-btn[data-job="' + jobType + '"]');
+      if (btn) btn.disabled = true;
+      try {
+        const r = await fetch(base + '/workers/' + jobType, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: currentProjectId, apply: true }) });
+        if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error || r.statusText); }
+        const data = await r.json();
+        if (data.project) updateScreenLayer(data.project);
+        log('Worker', jobType, 'done');
+      } catch (e) { log('Worker failed', e); if (typeof setStatus === 'function') setStatus('Worker failed: ' + (e.message || e)); }
+      if (btn) btn.disabled = false;
+    }
+
+    function log(...args) {
+      if (!VERBOSE) return;
+      const ts = new Date().toISOString();
+      console.log(`[Live][${ts}]`, ...args);
+    }
+    function logPayload(label, obj) {
+      if (!VERBOSE) return;
+      const s = JSON.stringify(obj);
+      const truncated = s.length > 2000 ? s.slice(0, 2000) + '...[truncated ' + (s.length - 2000) + ' chars]' : s;
+      log(label, truncated);
+    }
+
+    log('Config:', { LIVE_WS, MODEL, SEND_RATE, RECV_RATE });
+
+    async function refreshMicList(requestPermission = false) {
+      const select = document.getElementById('micSelect');
+      if (!select) return;
+      const current = select.value;
+      if (requestPermission) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop());
+        } catch (_) {}
+      }
+      let devices = [];
+      try {
+        devices = await navigator.mediaDevices.enumerateDevices();
+      } catch (e) {
+        log('enumerateDevices error', e);
+        return;
+      }
+      const mics = devices.filter(d => d.kind === 'audioinput');
+      select.innerHTML = '<option value="">Default (browser choice)</option>';
+      mics.forEach((d, i) => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || ('Microphone ' + (i + 1));
+        select.appendChild(opt);
+      });
+      if (current && mics.some(d => d.deviceId === current)) select.value = current;
+    }
+
+    await refreshMicList();
+    document.getElementById('btnRefreshMic').addEventListener('click', () => refreshMicList(true));
+
+    const statusEl = document.getElementById('status');
+    const transcriptEl = document.getElementById('transcript');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const errorEl = document.getElementById('error');
+    const configWarning = document.getElementById('configWarning');
+    const debugStatsEl = document.getElementById('debugStats');
+    const debugLastEl = document.getElementById('debugLast');
+
+    const lastMessages = [];
+    const MAX_LAST = 15;
+    function stripForDebug(obj) {
+      if (obj === null || obj === undefined) return obj;
+      if (typeof obj === 'string' && obj.length > 100) return obj.slice(0, 100) + '...[len=' + obj.length + ']';
+      if (Array.isArray(obj)) return obj.map(stripForDebug);
+      if (typeof obj === 'object') {
+        const out = {};
+        for (const k of Object.keys(obj)) {
+          const v = obj[k];
+          if (k === 'data' && typeof v === 'string') out[k] = '[base64 len=' + v.length + ']';
+          else out[k] = stripForDebug(v);
+        }
+        return out;
+      }
+      return obj;
+    }
+    function pushDebug(msgNum, msg) {
+      lastMessages.push({ n: msgNum, keys: Object.keys(msg), payload: stripForDebug(msg) });
+      if (lastMessages.length > MAX_LAST) lastMessages.shift();
+      if (debugStatsEl) debugStatsEl.textContent = 'Messages: ' + msgNum;
+      if (debugLastEl) debugLastEl.textContent = lastMessages.map(m => '#' + m.n + ' keys: ' + m.keys.join(', ')).join('\n');
+    }
+
+    function setStatus(text, className = '') {
+      statusEl.textContent = text;
+      statusEl.className = 'status ' + className;
+    }
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      setStatus('Error', 'error');
+    }
+    function hideError() { errorEl.hidden = true; }
+    function addTranscript(label, text) {
+      const forUser = label === 'You';
+      const cleaned = stripSpeakerPrefix(text, forUser);
+      if (!cleaned) return;
+      const line = document.createElement('div');
+      line.className = 'line ' + (forUser ? 'user' : 'model');
+      line.innerHTML = '<span class="label">' + label + '</span>' + cleaned.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      transcriptEl.appendChild(line);
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    }
+    function flushUserTranscript() {
+      if (userFlushTimer) clearTimeout(userFlushTimer);
+      userFlushTimer = null;
+      if (userTranscriptBuffer.trim()) {
+        addTranscript('You', userTranscriptBuffer.trim());
+        userTranscriptBuffer = '';
+      }
+    }
+    function flushModelTranscript() {
+      if (modelFlushTimer) clearTimeout(modelFlushTimer);
+      modelFlushTimer = null;
+      if (modelTranscriptBuffer.trim()) {
+        addTranscript('Model', modelTranscriptBuffer.trim());
+        modelTranscriptBuffer = '';
+      }
+    }
+    function scheduleModelSpeakingEnd(durationMs) {
+      if (modelSpeakingEndTimer) clearTimeout(modelSpeakingEndTimer);
+      modelSpeakingEndTimer = setTimeout(() => {
+        modelSpeakingEndTimer = null;
+        modelIsSpeaking = false;
+        lastModelSpeakingEndTime = Date.now();
+        log('modelIsSpeaking = false (playback window ended), grace period started');
+      }, Math.max(400, (durationMs || 0) + 400));
+    }
+
+    let ws = null;
+    let mediaStream = null;
+    let audioContext = null;
+    let processor = null;
+    let setupDone = false;
+    const micLevel = { rms: 0, speaking: false, ticks: 0, analyser: null };
+    let micMeterInterval = null;
+    /** Half-duplex: true while model audio is playing so we don't send mic and hear ourselves */
+    let modelIsSpeaking = false;
+    let modelSpeakingEndTimer = null;
+    /** Transcript buffering: accumulate small chunks and flush as one line */
+    let userTranscriptBuffer = '';
+    let userFlushTimer = null;
+    let modelTranscriptBuffer = '';
+    let modelFlushTimer = null;
+    const TRANSCRIPT_FLUSH_MS = 700;
+    /** Ignore inputTranscription for this long after model output/audio (avoids attributing echoed model speech to user) */
+    const ECHO_SUPPRESS_MS = 4000;
+    /** After model stops, brief mute so we don't send echo; then we only send when user is speaking (see send logic) */
+    const POST_SPEECH_GRACE_MS = 1000;
+    /** Min length for content-based echo match (avoid suppressing short real user replies like "yes") */
+    const ECHO_MATCH_MIN_LEN = 20;
+    /** Keep this much recent model transcript for content-based echo detection across multiple model turns */
+    const RECENT_MODEL_TRANSCRIPT_MAX = 1500;
+    /** Last time we received model output (outputTranscription or model audio); used to suppress echo in user transcript */
+    let lastModelOutputTime = 0;
+    /** When model speaking ended (playback window); used for POST_SPEECH_GRACE_MS */
+    let lastModelSpeakingEndTime = 0;
+    /** Rolling buffer of recent model speech for echo detection (so we don't attribute repeated/echoed model phrases to user) */
+    let recentModelTranscript = '';
+    /** Next scheduled start time for model audio (AudioContext time) so chunks play in order without overlapping */
+    let nextPlaybackTime = 0;
+
+    function normalizeForEchoMatch(s) {
+      return (s || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/[.,!?;:'"]/g, '')
+        .toLowerCase();
+    }
+    /** True if input looks like echoed model speech (full or partial match against recent model transcript). */
+    function isLikelyEchoFromModel(inputText) {
+      const normalized = normalizeForEchoMatch(inputText);
+      if (normalized.length < ECHO_MATCH_MIN_LEN) return false;
+      const recent = normalizeForEchoMatch(recentModelTranscript);
+      if (recent.length === 0) return false;
+      if (recent.includes(normalized) || normalized.includes(recent)) return true;
+      for (let i = 0; i <= normalized.length - ECHO_MATCH_MIN_LEN; i++) {
+        if (recent.includes(normalized.slice(i, i + ECHO_MATCH_MIN_LEN))) return true;
+      }
+      return false;
+    }
+    /** Remove embedded speaker prefixes so we don't double-label or show "YouModel*" in content. */
+    function stripSpeakerPrefix(text, forUser) {
+      let t = (text || '').trim();
+      const prefixes = forUser
+        ? [/^\s*Model\*?\s*/i, /^\s*Model\s+/i]
+        : [/^\s*You\s*/i, /^\s*User\s*/i];
+      for (const re of prefixes) {
+        t = t.replace(re, '').trim();
+      }
+      return t;
+    }
+
+    function base64FromPCM(pcm16) {
+      const u8 = new Uint8Array(pcm16.buffer, pcm16.byteOffset, pcm16.byteLength);
+      let bin = '';
+      const step = 8192;
+      for (let i = 0; i < u8.length; i += step) {
+        const slice = u8.subarray(i, Math.min(i + step, u8.length));
+        bin += String.fromCharCode.apply(null, slice);
+      }
+      return btoa(bin);
+    }
+
+    function playPCM24k(base64Data) {
+      try {
+        const binary = atob(base64Data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const samples = new Int16Array(bytes.buffer);
+        if (!window.playbackCtx) {
+          window.playbackCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: RECV_RATE });
+          nextPlaybackTime = 0;
+          log('playPCM24k: created playback AudioContext, state=', window.playbackCtx.state);
+        }
+        const ctx = window.playbackCtx;
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(() => log('playPCM24k: context resumed')).catch(e => log('playPCM24k: resume failed', e));
+        }
+        const duration = samples.length / RECV_RATE;
+        if (nextPlaybackTime < ctx.currentTime - 0.1) nextPlaybackTime = ctx.currentTime;
+        const when = nextPlaybackTime;
+        nextPlaybackTime += duration;
+        const buf = ctx.createBuffer(1, samples.length, RECV_RATE);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < samples.length; i++) ch[i] = samples[i] / 32768;
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(when);
+      } catch (e) {
+        log('playPCM24k ERROR', e);
+      }
+    }
+
+    async function startConversation(apiKey, options = {}) {
+      return new Promise((resolve, reject) => {
+        const timeoutMs = 20000;
+        let resolved = false;
+        let messageCount = 0;
+        const systemText = options.systemInstruction || 'You are a helpful voice assistant. Keep responses concise for conversation.';
+        function finish(err) {
+          if (resolved) return;
+          resolved = true;
+          log('finish()', err ? 'REJECT' : 'RESOLVE', err ? err.message : 'ok');
+          if (err) reject(err); else resolve();
+        }
+        log('startConversation: timeoutMs=', timeoutMs);
+        const t = setTimeout(() => {
+          log('TIMEOUT fired after', timeoutMs, 'ms. Messages received so far:', messageCount);
+          finish(new Error('Connection timeout. Check API key and that the Live API is enabled for your project.'));
+        }, timeoutMs);
+
+        if (ws) {
+          log('startConversation: closing existing WebSocket to avoid duplicate handlers');
+          ws.onmessage = null;
+          ws.onopen = null;
+          ws.onerror = null;
+          ws.onclose = null;
+          ws.close();
+          ws = null;
+        }
+
+        window._liveFirstMessage = false;
+        lastMessages.length = 0;
+        if (debugStatsEl) debugStatsEl.textContent = 'Messages: 0';
+        if (debugLastEl) debugLastEl.textContent = '';
+        const url = LIVE_WS + '?key=' + encodeURIComponent(apiKey);
+        const urlSafe = LIVE_WS + '?key=' + (apiKey ? apiKey.slice(0, 8) + '...' + apiKey.slice(-4) : 'MISSING');
+        log('WebSocket URL (key redacted):', urlSafe);
+        ws = new WebSocket(url);
+        log('WebSocket created, readyState=', ws.readyState, '(CONNECTING=0)');
+
+        ws.onopen = () => {
+          log('ONOPEN: readyState=', ws.readyState, '(OPEN=1)');
+          const setupPayload = {
+            setup: {
+              model: 'models/' + MODEL,
+              generationConfig: { responseModalities: ['AUDIO'] },
+              systemInstruction: { parts: [{ text: systemText }] },
+              inputAudioTranscription: {},
+              outputAudioTranscription: {}
+            }
+          };
+          logPayload('SEND setup (first message):', setupPayload);
+          const setupStr = JSON.stringify(setupPayload);
+          ws.send(setupStr);
+          log('SEND complete, byte length=', setupStr.length);
+        };
+
+        ws.onmessage = async (ev) => {
+          messageCount++;
+          let rawStr;
+          if (typeof ev.data === 'string') rawStr = ev.data;
+          else if (ev.data instanceof Blob) rawStr = await ev.data.text();
+          else if (ev.data instanceof ArrayBuffer) rawStr = new TextDecoder().decode(ev.data);
+          else rawStr = String(ev.data);
+          const rawLen = rawStr.length;
+          log('ONMESSAGE #' + messageCount, 'raw length=', rawLen, 'type=', typeof ev.data);
+
+          let msg;
+          try {
+            msg = JSON.parse(rawStr);
+          } catch (e) {
+            log('ONMESSAGE parse ERROR', e);
+            log('raw (first 500):', rawStr.slice(0, 500));
+            return;
+          }
+
+          const topKeys = Object.keys(msg);
+          log('ONMESSAGE #' + messageCount, 'top-level keys=', topKeys);
+          pushDebug(messageCount, msg);
+
+          if (messageCount <= 3 || 'setupComplete' in msg || 'setup_complete' in msg || 'error' in msg || topKeys.some(k => k.toLowerCase().includes('error'))) {
+            logPayload('ONMESSAGE #' + messageCount + ' full payload:', msg);
+          } else {
+            log('ONMESSAGE #' + messageCount, '(payload):', JSON.stringify(stripForDebug(msg)).slice(0, 1200));
+          }
+
+          if (msg.setupComplete !== undefined || msg.setup_complete !== undefined) {
+            log('SETUP COMPLETE received');
+            setupDone = true;
+            clearTimeout(t);
+            finish();
+            return;
+          }
+          if (msg.error) {
+            log('ERROR in message:', msg.error);
+            const errMsg = msg.error.message || msg.error.code || JSON.stringify(msg.error);
+            clearTimeout(t);
+            finish(new Error('API error: ' + errMsg));
+            return;
+          }
+
+          const c = msg.serverContent || msg.server_content;
+          const inputT = c ? (c.inputTranscription || c.input_transcription) : (msg.inputTranscription || msg.input_transcription);
+          const outputT = c ? (c.outputTranscription || c.output_transcription) : (msg.outputTranscription || msg.output_transcription);
+          const modelTurn = c ? (c.modelTurn || c.model_turn) : null;
+
+          if (outputT?.text) {
+            lastModelOutputTime = Date.now();
+            log('outputTranscription:', outputT.text?.slice(0, 80));
+            modelTranscriptBuffer += outputT.text;
+            if (currentProjectId && currentBackendUrl) tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+            recentModelTranscript += outputT.text;
+            if (recentModelTranscript.length > RECENT_MODEL_TRANSCRIPT_MAX) {
+              recentModelTranscript = recentModelTranscript.slice(-RECENT_MODEL_TRANSCRIPT_MAX);
+            }
+            if (modelFlushTimer) clearTimeout(modelFlushTimer);
+            modelFlushTimer = setTimeout(flushModelTranscript, TRANSCRIPT_FLUSH_MS);
+          }
+          if (inputT?.text) {
+            const now = Date.now();
+            const inTimeWindow = now - lastModelOutputTime < ECHO_SUPPRESS_MS;
+            const matchesModel = isLikelyEchoFromModel(inputT.text);
+            if (inTimeWindow || matchesModel) {
+              log('inputTranscription (ignored, likely echo)', inTimeWindow ? 'time' : 'content:', inputT.text?.slice(0, 80));
+            } else {
+              log('inputTranscription:', inputT.text?.slice(0, 80));
+              userTranscriptBuffer += inputT.text;
+              if (userFlushTimer) clearTimeout(userFlushTimer);
+              userFlushTimer = setTimeout(flushUserTranscript, TRANSCRIPT_FLUSH_MS);
+            }
+          }
+          const parts = modelTurn?.parts;
+          if (parts && Array.isArray(parts)) {
+            const seen = new Set();
+            for (const part of parts) {
+              const inline = part.inlineData || part.inline_data;
+              const data = inline?.data;
+              const mime = inline?.mimeType || inline?.mime_type || '';
+              if (data && mime.startsWith('audio/')) {
+                if (seen.has(data)) continue;
+                seen.add(data);
+                lastModelOutputTime = Date.now();
+                modelIsSpeaking = true;
+                const numSamples = atob(data).length / 2;
+                const durationMs = (numSamples / RECV_RATE) * 1000;
+                log('playing audio chunk, base64 length=', data?.length, 'durationMs=', Math.round(durationMs));
+                playPCM24k(data);
+                scheduleModelSpeakingEnd(durationMs);
+              }
+            }
+          }
+          const generationComplete = c ? (c.generationComplete || c.generation_complete) : false;
+          if (generationComplete) {
+            nextPlaybackTime = 0;
+            if (modelTranscriptBuffer && currentProjectId && currentBackendUrl) tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+          }
+          if (c && !inputT?.text && !outputT?.text && (!parts || !parts.length)) {
+            log('serverContent but no transcript/audio:', Object.keys(c));
+          } else if (!c && !msg.setupComplete && msg.setup_complete === undefined && topKeys.length > 0) {
+            log('Message not serverContent/setupComplete, keys=', topKeys);
+          }
+        };
+
+        ws.onerror = (e) => {
+          log('ONERROR:', e);
+          log('ONERROR type:', e?.type, 'target:', e?.target?.readyState);
+          clearTimeout(t);
+          finish(new Error('WebSocket error'));
+        };
+
+        ws.onclose = (ev) => {
+          log('ONCLOSE: code=', ev.code, 'reason=', ev.reason, 'wasClean=', ev.wasClean);
+          log('ONCLOSE full event:', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
+          clearTimeout(t);
+          if (!setupDone && ev.code !== 1000) finish(new Error('Connection closed: ' + (ev.reason || ev.code)));
+        };
+      });
+    }
+
+    async function startMic(ws) {
+      const micSelect = document.getElementById('micSelect');
+      const preferredDeviceId = micSelect ? micSelect.value : '';
+      const audioConstraints = {
+        channelCount: 1,
+        sampleRate: SEND_RATE,
+        autoGainControl: false,
+        echoCancellation: false
+      };
+      if (preferredDeviceId) audioConstraints.deviceId = { exact: preferredDeviceId };
+      log('startMic: requesting getUserMedia', preferredDeviceId ? 'deviceId=' + preferredDeviceId.slice(0, 20) + '...' : 'default');
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      const audioTracks = mediaStream.getAudioTracks();
+      const micTrack = audioTracks[0];
+      const deviceLabel = micTrack ? micTrack.label || 'Unknown device' : 'No audio track';
+      const deviceId = micTrack && micTrack.getSettings ? micTrack.getSettings().deviceId : null;
+      log('startMic: got MediaStream tracks=', mediaStream.getTracks().length, 'device:', deviceLabel, deviceId ? 'id=' + deviceId.slice(0, 20) + '...' : '');
+      const deviceEl = document.getElementById('micDevice');
+      if (deviceEl) deviceEl.textContent = 'Microphone: ' + deviceLabel + (deviceId ? ' · id: ' + deviceId.slice(0, 16) + (deviceId.length > 16 ? '…' : '') : '');
+      const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SEND_RATE });
+      audioContext = ctx;
+      log('startMic: AudioContext state=', ctx.state, 'sampleRate=', ctx.sampleRate);
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+        log('startMic: AudioContext resumed, state=', ctx.state);
+      }
+      const src = ctx.createMediaStreamSource(mediaStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.1;
+      micLevel.analyser = analyser;
+      const rate = ctx.sampleRate;
+      log('startMic: using AudioWorklet, rate=', rate);
+      const SILENCE_MS = 1000;
+      const VOLUME_THRESHOLD = 0.003;
+      let silenceStart = null;
+      let lastWasSpeaking = false;
+      let didLogSpeaking = false;
+      let audioChunkCount = 0;
+      let lastAudioLog = 0;
+      await ctx.audioWorklet.addModule('mic-processor.js');
+      const workletNode = new AudioWorkletNode(ctx, 'mic-processor', { numberOfInputs: 1, numberOfOutputs: 1 });
+      workletNode.port.onmessage = (e) => {
+        const { samples, rms } = e.data || {};
+        if (samples == null) return;
+        const speaking = rms > VOLUME_THRESHOLD;
+        micLevel.rms = rms;
+        micLevel.speaking = speaking;
+        micLevel.ticks = (micLevel.ticks || 0) + 1;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        if (modelIsSpeaking) return;
+        const now = Date.now();
+        const inGrace = lastModelSpeakingEndTime && (now - lastModelSpeakingEndTime < POST_SPEECH_GRACE_MS);
+        if (speaking) {
+          silenceStart = null;
+          lastWasSpeaking = true;
+          if (!didLogSpeaking) {
+            didLogSpeaking = true;
+            log('startMic: speech detected (rms=', rms.toFixed(4), '), silence timer will start when you stop');
+          }
+        } else {
+          if (lastWasSpeaking) {
+            if (silenceStart === null) silenceStart = now;
+            else if (now - silenceStart >= SILENCE_MS) {
+              log('startMic: silence detected', Math.round((now - silenceStart) / 1000) + 's, sending audioStreamEnd');
+              ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+              silenceStart = null;
+              lastWasSpeaking = false;
+            }
+          }
+        }
+        if (inGrace || !speaking) return;
+        const pcm16 = new Int16Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+          const s = Math.max(-1, Math.min(1, samples[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        let data = pcm16;
+        if (rate !== SEND_RATE) {
+          const ratio = rate / SEND_RATE;
+          const outLen = Math.floor(pcm16.length / ratio);
+          const out = new Int16Array(outLen);
+          for (let i = 0; i < outLen; i++) out[i] = pcm16[Math.floor(i * ratio)];
+          data = out;
+        }
+        const b64 = base64FromPCM(data);
+        ws.send(JSON.stringify({ realtimeInput: { audio: { mimeType: 'audio/pcm;rate=16000', data: b64 } } }));
+        audioChunkCount++;
+        if (audioChunkCount === 1) log('startMic: first realtime audio chunk sent, base64 length=', b64.length);
+        else if (now - lastAudioLog >= 5000) {
+          log('startMic: realtime audio chunks sent so far=', audioChunkCount);
+          lastAudioLog = now;
+        }
+      };
+      src.connect(workletNode);
+      workletNode.connect(ctx.destination);
+      src.connect(analyser);
+      processor = workletNode;
+      const meterEl = document.getElementById('micMeter');
+      const barEl = document.getElementById('micBar');
+      const valueEl = document.getElementById('micValue');
+      if (meterEl) meterEl.style.display = 'block';
+      const timeData = new Uint8Array(analyser.fftSize);
+      micMeterInterval = setInterval(() => {
+        let r = micLevel.rms;
+        if (micLevel.analyser) {
+          micLevel.analyser.getByteTimeDomainData(timeData);
+          let sum = 0;
+          for (let i = 0; i < timeData.length; i++) {
+            const n = (timeData[i] - 128) / 128;
+            sum += n * n;
+          }
+          r = Math.sqrt(sum / timeData.length);
+          micLevel.rms = r;
+          micLevel.speaking = r > VOLUME_THRESHOLD;
+        }
+        const rSafe = Math.max(r, 1e-6);
+        const pct = Math.min(100, Math.max(0, Math.round(100 * Math.log1p(rSafe * 50) / Math.log1p(50))));
+        if (barEl) {
+          barEl.style.width = pct + '%';
+          barEl.classList.toggle('speaking', micLevel.speaking);
+          barEl.setAttribute('aria-valuenow', pct);
+        }
+        if (valueEl) valueEl.textContent = 'RMS: ' + r.toFixed(4) + (micLevel.speaking ? ' · Speaking' : ' · Silence') + ' · ticks: ' + (micLevel.ticks || 0);
+      }, 50);
+      log('startMic: AudioWorklet connected, mic active');
+    }
+
+    function stopAll() {
+      log('stopAll: clearing processor, mediaStream, ws');
+      if (modelSpeakingEndTimer) {
+        clearTimeout(modelSpeakingEndTimer);
+        modelSpeakingEndTimer = null;
+      }
+      modelIsSpeaking = false;
+      flushUserTranscript();
+      flushModelTranscript();
+      if (micMeterInterval) {
+        clearInterval(micMeterInterval);
+        micMeterInterval = null;
+      }
+      micLevel.rms = 0;
+      micLevel.speaking = false;
+      micLevel.ticks = 0;
+      micLevel.analyser = null;
+      const meterEl = document.getElementById('micMeter');
+      if (meterEl) meterEl.style.display = 'none';
+      if (processor && audioContext) {
+        try { processor.disconnect(); } catch (err) { log('stopAll: processor.disconnect error', err); }
+      }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      if (ws) {
+        log('stopAll: closing WebSocket');
+        ws.close();
+        ws = null;
+      }
+      setupDone = false;
+      log('stopAll: done');
+    }
+
+    btnStart.addEventListener('click', async () => {
+      log('===== Start conversation clicked =====');
+      hideError();
+      let apiKey;
+      let backendUrl = '';
+      let conductorPrompt = '';
+      let projectId = null;
+      let resumableProject = null;
+      try {
+        const mod = await import('./config.js');
+        apiKey = mod.GEMINI_API_KEY;
+        backendUrl = (mod.BACKEND_URL || '').trim();
+        log('Config loaded, API key length=', apiKey?.length ?? 0, 'backendUrl=', backendUrl ? 'set' : 'none');
+      } catch (e) {
+        log('Config load FAILED', e);
+        configWarning.hidden = false;
+        setStatus('Missing config.js');
+        return;
+      }
+      configWarning.hidden = true;
+      if (!apiKey || apiKey === 'YOUR_API_KEY_HERE' || apiKey === 'YOUR_GEMINI_API_KEY') {
+        log('API key missing or placeholder');
+        configWarning.hidden = false;
+        configWarning.textContent = 'Edit config.js and set GEMINI_API_KEY (get one at https://aistudio.google.com/apikey).';
+        setStatus('Set API key');
+        return;
+      }
+      if (backendUrl) {
+        const base = backendUrl.replace(/\/$/, '');
+        try {
+          const lastId = localStorage.getItem('idearefinement_lastProjectId');
+          if (lastId) {
+            const r = await fetch(base + '/projects/' + encodeURIComponent(lastId));
+            if (r.ok) resumableProject = await r.json();
+          }
+          if (resumableProject?.checkpoint) {
+            projectId = resumableProject.projectId;
+            currentProjectId = projectId;
+            currentBackendUrl = base;
+            updateScreenLayer(resumableProject);
+            document.getElementById('screenLayer').style.display = 'block';
+            await showProjectsSection();
+            log('Resuming project', projectId);
+          } else {
+            const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            const ct = createRes.headers.get('content-type') || '';
+            if (ct.includes('text/html')) {
+              log('Backend returned HTML — is BACKEND_URL the backend (port 3002), not the web app (3001)?');
+              configWarning.hidden = false;
+              configWarning.textContent = 'Backend returned a page instead of JSON. In config.js set BACKEND_URL to http://localhost:3002 (the backend), not 3001.';
+            } else if (createRes.ok) {
+              const proj = await createRes.json();
+              projectId = proj.projectId;
+              currentProjectId = projectId;
+              currentBackendUrl = base;
+              await showProjectsSection();
+              log('Created project', projectId);
+            }
+          }
+          const promptRes = await fetch(base + '/prompts/conductor');
+          if (promptRes.ok) conductorPrompt = await promptRes.text();
+          if (conductorPrompt && base) {
+            const listRes = await fetch(base + '/projects');
+            const projectList = listRes.ok ? await listRes.json() : [];
+            const currentName = (resumableProject?.name || (projectId && projectList.find(p => p.projectId === projectId)?.name) || '').trim();
+            const listStr = projectList.map(p => (p.name || '(no name)') + ' (' + p.projectId + ')').join(', ');
+            conductorPrompt = conductorPrompt + '\n\nCurrent projectId: ' + (projectId || 'unknown') + (currentName ? '\nCurrent project name: ' + currentName : '') + '\nExisting projects (use these names when user says "work on X"): ' + (listStr || 'none');
+            let fullProject = resumableProject;
+            if (projectId && !fullProject) {
+              try {
+                const r = await fetch(base + '/projects/' + encodeURIComponent(projectId));
+                if (r.ok) fullProject = await r.json();
+              } catch (_) {}
+            }
+            if (fullProject && (fullProject.snapshot || fullProject.name || fullProject.mvp || (fullProject.openQuestions && fullProject.openQuestions.length > 0))) {
+              const s = fullProject;
+              const stateLines = [
+                'Current project state (use to answer "what\'s the gist?" or "what were we refining?"):',
+                'Name: ' + (s.name || '(none)'),
+                'Snapshot: ' + (s.snapshot || '(none)'),
+                'Track: ' + (s.track || '') + ', Rigor: ' + (s.rigor || ''),
+                'Phase: ' + (s.phase || 1),
+                (s.mvp ? 'MVP: ' + s.mvp : ''),
+                (s.nonGoals ? 'Non-goals: ' + s.nonGoals : ''),
+                (s.decisions && s.decisions.length) ? 'Decisions: ' + s.decisions.join('; ') : '',
+                (s.openQuestions && s.openQuestions.length) ? 'Open questions: ' + s.openQuestions.join('; ') : '',
+                (s.nextActions && s.nextActions.length) ? 'Next actions: ' + s.nextActions.join('; ') : '',
+                (s.validationPlan && s.validationPlan.trim()) ? 'Validation plan: ' + String(s.validationPlan).trim().slice(0, 200) : '',
+                (s.buildPlan && s.buildPlan.trim()) ? 'Build plan: ' + String(s.buildPlan).trim().slice(0, 200) : ''
+              ].filter(Boolean);
+              conductorPrompt = conductorPrompt + '\n\n' + stateLines.join('\n');
+            }
+          }
+        } catch (e) { log('Backend setup failed', e); }
+      }
+      const systemInstruction = conductorPrompt || undefined;
+      setStatus('Connecting…');
+      btnStart.disabled = true;
+      try {
+        log('Calling startConversation(apiKey, options)...');
+        await startConversation(apiKey, { systemInstruction, projectId, backendUrl: currentBackendUrl });
+        log('startConversation resolved, sending initial turn to wake model');
+        setStatus('Starting…');
+        const projForResume = projectId && resumableProject ? resumableProject : null;
+        const initialText = projForResume?.checkpoint
+          ? 'We are resuming project ' + projectId + '. Checkpoint: ' + (projForResume.checkpoint.note || 'paused') + '. Open questions: ' + (projForResume.openQuestions?.length || 0) + '. Ask one restart question.'
+          : projectId
+            ? 'We are starting idea refinement. ProjectId is ' + projectId + '. Say a brief hello and ask for the idea in one sentence.'
+            : 'Hello. The user is ready. Say a brief hello and that you are listening.';
+        ws.send(JSON.stringify({
+          clientContent: {
+            turns: [{ role: 'user', parts: [{ text: initialText }] }],
+            turnComplete: true
+          }
+        }));
+        log('Initial clientContent sent');
+        setStatus('Starting microphone…');
+        if (!window.playbackCtx) {
+          window.playbackCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: RECV_RATE });
+          log('Pre-created playback AudioContext, state=', window.playbackCtx.state);
+          if (window.playbackCtx.state === 'suspended') {
+            window.playbackCtx.resume().then(() => log('Playback context resumed')).catch(e => log('Resume failed', e));
+          }
+        }
+        await startMic(ws);
+        setStatus('In conversation – speak then click "Done speaking" or wait 1s silence', 'active');
+        btnStart.style.display = 'none';
+        btnStop.style.display = 'block';
+        document.getElementById('btnDoneSpeaking').style.display = 'block';
+        log('===== Conversation started successfully =====');
+      } catch (e) {
+        log('startConversation or startMic FAILED', e?.message ?? e);
+        showError(e.message || String(e));
+        stopAll();
+      }
+      btnStart.disabled = false;
+    });
+
+    document.getElementById('btnNewIdea').addEventListener('click', () => {
+      localStorage.removeItem('idearefinement_lastProjectId');
+      document.getElementById('btnNewIdea').style.display = 'none';
+      setStatus('Ready. Click Start for a new idea.');
+      log('Cleared resumable session');
+    });
+
+    btnStop.addEventListener('click', async () => {
+      log('===== Stop clicked =====');
+      if (currentProjectId && currentBackendUrl) {
+        const base = currentBackendUrl.replace(/\/$/, '');
+        try {
+          const proj = await fetchProject(base, currentProjectId);
+          if (proj) {
+            const checkpoint = { at: new Date().toISOString(), note: 'Paused by user', openQuestions: proj.openQuestions || [], nextActions: proj.nextActions || [] };
+            await fetch(base + '/projects/' + encodeURIComponent(currentProjectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checkpoint }) });
+            localStorage.setItem('idearefinement_lastProjectId', currentProjectId);
+            log('Checkpoint saved', currentProjectId);
+          }
+        } catch (e) { log('Checkpoint save failed', e); }
+      }
+      stopAll();
+      btnStop.style.display = 'none';
+        btnStart.style.display = 'block';
+        document.getElementById('btnDoneSpeaking').style.display = 'none';
+      document.getElementById('btnNewIdea').style.display = 'block';
+      setStatus('Stopped. Session saved — click Start to resume or New idea to start fresh.');
+    });
+
+    document.getElementById('btnDoneSpeaking').addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        log('Done speaking (button): sending audioStreamEnd');
+        ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+      }
+    });
+
+    document.getElementById('btnCopyDebug').addEventListener('click', () => {
+      const text = JSON.stringify(lastMessages, null, 2);
+      navigator.clipboard.writeText(text).then(() => {
+        log('Copied', lastMessages.length, 'messages to clipboard');
+        const btn = document.getElementById('btnCopyDebug');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy last messages (for support)'; }, 2000);
+      }).catch(e => log('Copy failed', e));
+    });
+
+    document.getElementById('workerButtons')?.addEventListener('click', (e) => {
+      const job = e.target?.closest('.worker-btn')?.getAttribute('data-job');
+      if (job) runWorker(job);
+    });
+
+    document.getElementById('screenLayer')?.addEventListener('click', (e) => {
+      if (!e.target.classList?.contains('screen-project-name')) return;
+      const span = e.target;
+      const projectId = span.dataset.projectId;
+      if (!projectId || !currentBackendUrl) return;
+      const currentName = (span.textContent === 'Click to add name' ? '' : span.textContent).trim();
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = currentName;
+      inp.placeholder = 'Project name';
+      inp.style.cssText = 'background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-size:0.875rem;min-width:120px;';
+      span.textContent = '';
+      span.appendChild(inp);
+      inp.focus();
+      function saveName() {
+        const name = inp.value.trim();
+        span.removeChild(inp);
+        span.textContent = name || 'Click to add name';
+        span.dataset.projectId = projectId;
+        if (!name) return;
+        const base = currentBackendUrl.replace(/\/$/, '');
+        fetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+          .then(r => r.ok ? r.json() : null)
+          .then(proj => { if (proj) { updateScreenLayer(proj); refreshProjectsList(); } });
+      }
+      inp.addEventListener('blur', saveName);
+      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } });
+    });
+
+    document.getElementById('btnRefreshProjects')?.addEventListener('click', () => refreshProjectsList());
+    document.getElementById('btnFrameworkLoad')?.addEventListener('click', () => loadFramework());
+    document.getElementById('btnFrameworkSave')?.addEventListener('click', () => saveFramework());
+    document.getElementById('projectsSelect')?.addEventListener('change', (e) => {
+      const id = e.target?.value;
+      if (id) loadProjectIntoUI(id);
+    });
+
+    (async () => {
+      try {
+        const mod = await import('./config.js');
+        const url = (mod.BACKEND_URL || '').trim();
+        if (url) { currentBackendUrl = url.replace(/\/$/, ''); showProjectsSection(); }
+      } catch (_) {}
+    })();
+  </script>
+</body>
+</html>

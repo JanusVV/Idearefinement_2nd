@@ -1,0 +1,373 @@
+IDEA REFINEMENT VOICE AGENT — FULL v4 COVERAGE (CONCEPTUAL SPEC)
+(Everything from your v4 framework is included, but only activated when needed.)
+
+This document expands the earlier conceptual spec so it fully covers your initial framework’s phases and elements (v4), while keeping the system efficient by using track- and rigor-based triggers. 
+
+=====================================================================
+1) DESIGN PHILOSOPHY
+=====================================================================
+
+You want two things that often conflict:
+- COMPREHENSIVENESS (your v4 includes business, legal, ethics, launch, testing, etc.)
+- EFFICIENCY (voice-first, minimal friction, avoid overkill for personal projects)
+
+The solution is:
+A) include every v4 module as a “capability”
+B) only run a module when it’s relevant via:
+   - Track (Personal vs Commercial vs Internal)
+   - Rigor Level (Light vs Standard vs High-stakes)
+   - Explicit user request (you ask for it)
+
+In other words:
+- The framework is “complete,” but the workflow is “selective.”
+
+=====================================================================
+2) THE SYSTEM’S THREE PILLARS (NON-NEGOTIABLE)
+=====================================================================
+
+PILLAR 1 — Persistent Project Registry
+- The canonical truth about each project lives in storage, not in the chat.
+- Every turn updates this registry with a structured patch.
+
+PILLAR 2 — Voice-First Conductor
+- Gemini Flash 3.0 runs the conversation: one question at a time, forced-choice when possible.
+- It chooses workflow depth and suggests modules/services.
+
+PILLAR 3 — Modular Services + Specialist Workers
+- OpenAI/Claude/Grok are “workers” invoked for specific jobs.
+- They return structured outputs that the conductor integrates into the registry.
+
+=====================================================================
+3) TRACKS + RIGOR: HOW YOU AVOID OVERKILL
+=====================================================================
+
+TRACK (what kind of project this is)
+- PERSONAL: built for you; minimize market/business/legal overhead.
+- COMMERCIAL: public product with adoption/revenue goals; requires GTM + viability checks.
+- INTERNAL: team/company tool; requires requirements rigor + deployment/security constraints.
+
+RIGOR LEVEL (how deep to go)
+- LIGHT: low stakes, small scope; keep it lean
+- STANDARD: meaningful effort; do planning + validation
+- HIGH-STAKES: sensitive data, payments, regulated domain, high failure cost; do compliance, risk, testing rigor
+
+The conductor computes this early and updates it as new info emerges (e.g., “we’ll take payments” upgrades rigor).
+
+=====================================================================
+4) FULL v4 MODULE COVERAGE — AS CONDITIONAL MODULES
+=====================================================================
+
+Your v4 phases (1–7) become “modules” the system can activate.
+Below are ALL v4 elements, with triggers that decide when to run them. :contentReference[oaicite:1]{index=1}
+
+---------------------------------------------------------------------
+PHASE 1 — FOUNDATION: IDEA GENESIS & CONTEXTUAL CLARITY
+---------------------------------------------------------------------
+
+1.1 CAPTURE THE SPARK (text/voice/images + inspiration board optional) :contentReference[oaicite:2]{index=2}
+- Purpose: quickly capture raw idea + origin + any inspiration artifacts.
+- Trigger:
+  - Always available at the start of a new idea.
+  - Usually LIGHT mode uses minimal version (just a 1–2 sentence capture).
+  - Inspiration board is optional and only created if you provide assets or ask.
+
+1.2 PROBLEM DEFINITION (Five Whys + audience identification) :contentReference[oaicite:3]{index=3}
+- Purpose: strengthen problem clarity and avoid solution-first traps.
+- Trigger:
+  - Default in STANDARD/HIGH-STAKES.
+  - Optional in LIGHT (only if problem is unclear or you’re stuck).
+
+1.3 INITIAL SOLUTION OUTLINE (core benefit + low-code/no-code feasibility) :contentReference[oaicite:4]{index=4}
+- Purpose: articulate solution and decide if a low-code prototype is better.
+- Trigger:
+  - Always do “solution + core benefit” lightly.
+  - Do low-code/no-code feasibility when:
+    - project is PERSONAL and speed matters, OR
+    - you explicitly want the fastest MVP path.
+
+1.4 QUICK MARKET CONTEXT CHECK (competitors, trends, growth) :contentReference[oaicite:5]{index=5}
+- Purpose: quick sanity check: is this already saturated / solved?
+- Trigger:
+  - Only if COMMERCIAL or you ask.
+  - In PERSONAL track, skip unless it impacts tooling choice or you want inspiration.
+
+---------------------------------------------------------------------
+PHASE 2 — VALIDATION: DEEP REALITY CHECK & MARKET ALIGNMENT
+---------------------------------------------------------------------
+
+2.1 COMPREHENSIVE PROBLEM VALIDATION (evidence gathering + alternatives + pain scoring) :contentReference[oaicite:6]{index=6}
+- Purpose: verify people actually experience the problem and care.
+- Trigger:
+  - COMMERCIAL + STANDARD/HIGH-STAKES: recommended.
+  - INTERNAL: recommended if adoption is uncertain.
+  - PERSONAL: usually skip; replace with “will I use it?” tests.
+
+2.2 SOLUTION VALIDATION & UVP TESTING (UVP clarity + assumption tests) :contentReference[oaicite:7]{index=7}
+- Purpose: verify your proposed solution resonates and de-risks assumptions.
+- Trigger:
+  - COMMERCIAL + STANDARD/HIGH-STAKES: recommended.
+  - INTERNAL: recommended if stakeholders are skeptical.
+  - PERSONAL: only if you’re unsure what version is “worth building.”
+
+2.3 MARKET & AUDIENCE ANALYSIS (ICP, benchmarking matrix, SOM estimation, trends/barriers) :contentReference[oaicite:8]{index=8}
+- Purpose: clarify target market and competitive landscape.
+- Trigger:
+  - COMMERCIAL + STANDARD/HIGH-STAKES only.
+  - For small commercial experiments, do a “light ICP + 3 competitors” variant; skip SOM unless you request it or funding is in scope.
+
+2.4 ETHICAL & SOCIETAL IMPACT ASSESSMENT (accessibility, AI bias/ethics audits) :contentReference[oaicite:9]{index=9}
+- Purpose: catch harm, bias, accessibility issues early.
+- Trigger:
+  - HIGH-STAKES by default.
+  - Any project using AI for decisions/recommendations affecting users.
+  - Any project touching sensitive groups or personal data.
+  - Otherwise: lightweight “accessibility + harm check” only.
+
+---------------------------------------------------------------------
+PHASE 3 — TECHNICAL & OPERATIONAL FEASIBILITY
+---------------------------------------------------------------------
+
+3.1 PRODUCT DEFINITION & REQUIREMENTS ENGINEERING (MVP prioritization, workshops, acceptance criteria, traceability) :contentReference[oaicite:10]{index=10}
+- Purpose: translate idea into buildable requirements.
+- Trigger:
+  - STANDARD/HIGH-STAKES: do formalized user stories + acceptance criteria.
+  - HIGH-STAKES: enable traceability setup.
+  - LIGHT: do a minimal backlog and 3–7 “must-have” stories.
+
+3.2 SYSTEM ARCHITECTURE & TECHNICAL PLANNING (stack, diagrams, complexity, API specs) :contentReference[oaicite:11]{index=11}
+- Purpose: ensure feasibility and reduce rework.
+- Trigger:
+  - Always do a minimal architecture sketch.
+  - Detailed diagrams + API spec planning when:
+    - project is ONLINE, uses accounts, payments, multi-device sync, or external integrations
+    - OR INTERNAL deployments require constraints
+    - OR HIGH-STAKES.
+
+3.3 UX/UI & ACCESSIBILITY STANDARDS (flows, wireframes, accessibility checklist, iterative UX testing) :contentReference[oaicite:12]{index=12}
+- Purpose: avoid building unusable products.
+- Trigger:
+  - COMMERCIAL + STANDARD/HIGH: recommended.
+  - INTERNAL: recommended if multiple roles/workflows.
+  - PERSONAL: only if you expect frequent use or complexity.
+  - Accessibility checklist:
+    - HIGH-STAKES default
+    - otherwise optional.
+
+3.4 QUALITY ENGINEERING & TEST PLANNING (test strategy, metrics, environment setup) :contentReference[oaicite:13]{index=13}
+- Purpose: reliability and maintainability.
+- Trigger:
+  - HIGH-STAKES default.
+  - STANDARD when:
+    - multi-user
+    - data integrity matters
+    - business-critical internal tool
+  - LIGHT: minimal smoke tests only.
+
+---------------------------------------------------------------------
+PHASE 4 — VIABILITY & SUSTAINABLE BUSINESS MODEL
+---------------------------------------------------------------------
+
+4.1 BUSINESS MODEL & FINANCIAL VIABILITY (pricing, financial modeling, unit economics, funding strategies) :contentReference[oaicite:14]{index=14}
+- Purpose: ensure the business can work.
+- Trigger:
+  - COMMERCIAL projects only.
+  - Do “pricing strategy + basic unit economics” in STANDARD.
+  - Do advanced modeling + funding strategies only when:
+    - you explicitly want investment/funding plans, OR
+    - high-cost operations require careful modeling.
+
+4.2 LEGAL, IP, & REGULATORY COMPLIANCE (IP/FTO, compliance checklist, privacy-by-design, security planning) :contentReference[oaicite:15]{index=15}
+- Purpose: prevent legal/security disasters.
+- Trigger:
+  - HIGH-STAKES default.
+  - COMMERCIAL: recommended if handling user data, payments, or regulated domains.
+  - INTERNAL: recommended if it touches company data or access control.
+  - PERSONAL: typically skip unless dealing with sensitive data.
+
+4.3 SUSTAINABILITY & SOCIAL IMPACT ROADMAP (lifecycle, ESG, long-term sustainability) :contentReference[oaicite:16]{index=16}
+- Purpose: ensure long-term responsibility.
+- Trigger:
+  - Only when:
+    - you explicitly care about ESG/social impact,
+    - it’s a brand pillar,
+    - or it’s relevant for stakeholders (enterprise/government).
+
+---------------------------------------------------------------------
+PHASE 5 — GO-TO-MARKET STRATEGY & EXECUTION PLANNING
+---------------------------------------------------------------------
+
+5.1 BRANDING & POSITIONING (identity/messaging, customer journey mapping) :contentReference[oaicite:17]{index=17}
+- Purpose: clarity of message + user flow.
+- Trigger:
+  - COMMERCIAL projects only.
+  - Customer journey mapping:
+    - default for COMMERCIAL STANDARD/HIGH
+    - optional for small experiments.
+
+5.2 MARKETING & CUSTOMER ACQUISITION (channels, retention, social proof, community/ecosystem) :contentReference[oaicite:18]{index=18}
+- Purpose: acquisition plan.
+- Trigger:
+  - COMMERCIAL only.
+  - In LIGHT commercial (tiny MVP): pick 1–2 channels and a basic retention hook.
+  - In STANDARD/HIGH: more complete channel prioritization + social proof plan.
+
+5.3 LAUNCH STRATEGY (pre-launch metrics, launch types, post-launch loops, crisis protocol) :contentReference[oaicite:19]{index=19}
+- Purpose: launch readiness + operational stability.
+- Trigger:
+  - COMMERCIAL STANDARD/HIGH.
+  - INTERNAL launches: simplified rollout plan.
+  - Crisis management protocol:
+    - HIGH-STAKES or public launch with reputational risk.
+
+---------------------------------------------------------------------
+PHASE 6 — EXECUTION, ITERATION & CONTINUOUS IMPROVEMENT
+---------------------------------------------------------------------
+
+6.1 METRICS & FEEDBACK INTEGRATION (KPIs, feedback systems, iteration documentation) :contentReference[oaicite:20]{index=20}
+- Purpose: continuous learning.
+- Trigger:
+  - Always, but depth varies:
+    - PERSONAL: one metric + simple feedback notes
+    - COMMERCIAL/INTERNAL: KPI set + feedback loop plan
+
+6.2 RISK & STAKEHOLDER MANAGEMENT (risk register, stakeholder conflict, cognitive bias checklist, kill criteria) :contentReference[oaicite:21]{index=21}
+- Purpose: keep projects grounded and aligned.
+- Trigger:
+  - HIGH-STAKES default.
+  - INTERNAL: stakeholder management recommended.
+  - COMMERCIAL: kill criteria always recommended.
+  - Cognitive bias checklist:
+    - if you’re making big calls with limited data, OR on request.
+
+---------------------------------------------------------------------
+PHASE 7 — SYNTHESIS, DOCUMENTATION & NEXT STEPS
+---------------------------------------------------------------------
+
+7.1 SUMMARIZE & DOCUMENT CLEARLY (elevator pitch, summary report, canvases, pitch deck, anti-pitch) :contentReference[oaicite:22]{index=22}
+- Purpose: create shareable artifacts and clarity.
+- Trigger:
+  - Always provide a compact “snapshot.”
+  - Full artifacts only when:
+    - COMMERCIAL and you’re presenting externally,
+    - INTERNAL and you need stakeholder alignment,
+    - or you explicitly request documents (pitch/anti-pitch).
+
+7.2 TECHNICAL DOCUMENTATION GENERATION (PRD, SRS, architecture docs, design docs, API/DB/UI specs, test plan, traceability matrix) :contentReference[oaicite:23]{index=23}
+- Purpose: turn refined idea into build-ready documents.
+- Trigger:
+  - STANDARD/HIGH projects when you want implementation-ready output.
+  - HIGH-STAKES: recommend PRD + SRS + test plan + traceability.
+  - LIGHT: generate only a lean PRD-lite unless you request more.
+
+---------------------------------------------------------------------
+META-LEVEL TOOL & IMPLEMENTATION CONSIDERATIONS (v4)
+--------------------------------------------------------------------- :contentReference[oaicite:24]{index=24}
+Your v4 includes:
+- intuitive UI/UX with progress tracking
+- modular/adaptive framework
+- AI co-pilot integration
+- secure data management, versioning
+- API-first integrations
+- accessibility (WCAG)
+
+These are “system requirements”:
+- The UI must show progress and current phase.
+- Everything must be modular (modules can be turned on/off).
+- The registry is versioned and safe to update.
+- The system supports tool/service integrations.
+- Accessibility is respected in UI output.
+
+=====================================================================
+5) HOW “ONLY WHEN NEEDED” WORKS IN PRACTICE
+=====================================================================
+
+The conductor should follow this rule:
+
+1) DEFAULT TO MINIMAL (LIGHT) OUTPUT
+2) UPGRADE DEPTH ONLY IF:
+   - project track requires it (commercial/internal)
+   - rigor score crosses threshold (standard/high-stakes)
+   - user asks for deeper work
+   - a major dependency appears (payments, accounts, sensitive data, regulated domain)
+
+For each module it wants to activate, it should either:
+- auto-run minimal version (if harmless and fast)
+- or ask permission before heavy work:
+  “This looks commercial; want a competitor scan and positioning pass?”
+
+=====================================================================
+6) SERVICES: TURN EACH HEAVY MODULE INTO AN OPTIONAL JOB
+=====================================================================
+
+To keep the voice flow light, heavy modules are best implemented as “services”:
+- Competitor benchmarking matrix
+- SOM estimation
+- Advanced financial modeling / funding strategy
+- Legal/IP compliance checklist
+- Risk register + threat model
+- UX flow mapping + accessibility checklist
+- Quality engineering & test planning
+- PRD/SRS/Architecture doc generation
+- Pitch deck + anti-pitch generation
+- Crisis management protocol
+
+Each service returns:
+- structured result
+- confidence rating
+- (optional) citations for research-based work
+- suggested registry patch
+
+The conductor integrates it and then asks the next question.
+
+=====================================================================
+7) OUTPUT CONTRACT (MUST BE CONSISTENT EVERY TURN)
+=====================================================================
+
+Every assistant response must contain:
+
+A) SPEAK LAYER (short; voice-friendly)
+- 2–3 bullets
+- 1 question
+
+B) SCREEN LAYER (detailed, structured)
+Always present these headings; modules can collapse/expand:
+- Idea Snapshot
+- Track & Rigor (why we’re going deep or staying light)
+- Constraints (platform/connectivity/privacy)
+- Current Phase & Progress
+- MVP + Non-goals
+- Assumptions & Risks
+- Validation Plan
+- Build Plan
+- Optional Modules Activated (and why)
+- Registry Update (what changed)
+- Next Question
+
+C) JSON LAYER (machine-readable patch)
+- project id
+- updates to snapshot, backlog, risks, decisions, open questions, next actions, phase, checkpoint
+
+=====================================================================
+8) RESUME & MULTI-PROJECT CONTINUITY
+=====================================================================
+
+When you stop or switch:
+- Write a checkpoint (where we stopped, decisions, open questions, next actions)
+- Update last active project
+- Save a brief “resume preface”
+
+When you return:
+- Show last checkpoint summary
+- Ask one restart question:
+  “Do you want to resolve Open Question #1, or refine the MVP scope next?”
+
+=====================================================================
+9) WHAT THIS ACHIEVES
+=====================================================================
+
+You now have:
+- full parity with your v4 framework (all phases and elements included) :contentReference[oaicite:25]{index=25}
+- an efficient voice-first flow (modules only triggered when relevant)
+- multi-project continuity through a registry + checkpoints
+- the ability to refine features on existing projects without losing alignment
+- optional deep services (legal, business, ethics, docs, testing, launch ops) when needed
