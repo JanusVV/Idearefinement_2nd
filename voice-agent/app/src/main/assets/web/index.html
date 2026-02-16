@@ -1760,6 +1760,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
     function stopAll() {
       log('stopAll: clearing processor, mediaStream, ws');
+      if (window.Android) try { window.Android.stopSession(); } catch(_) {}
       if (agentResultsPollInterval) {
         clearInterval(agentResultsPollInterval);
         agentResultsPollInterval = null;
@@ -1807,11 +1808,18 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       let projectId = null;
       let resumableProject = null;
       try {
-        const mod = await import('./config.js');
-        apiKey = mod.GEMINI_API_KEY;
-        backendUrl = (mod.BACKEND_URL || '').trim();
-        if (mod.API_KEY) currentApiKey = mod.API_KEY;
-        log('Config loaded, API key length=', apiKey?.length ?? 0, 'backendUrl=', backendUrl ? 'set' : 'none', 'auth=', currentApiKey ? 'yes' : 'no');
+        if (window.VOICE_AGENT_CONFIG) {
+          apiKey = window.VOICE_AGENT_CONFIG.GEMINI_API_KEY;
+          backendUrl = (window.VOICE_AGENT_CONFIG.BACKEND_URL || '').trim();
+          if (window.VOICE_AGENT_CONFIG.API_KEY) currentApiKey = window.VOICE_AGENT_CONFIG.API_KEY;
+          log('Config loaded from native bridge');
+        } else {
+          const mod = await import('./config.js');
+          apiKey = mod.GEMINI_API_KEY;
+          backendUrl = (mod.BACKEND_URL || '').trim();
+          if (mod.API_KEY) currentApiKey = mod.API_KEY;
+        }
+        log('Config ready, API key length=', apiKey?.length ?? 0, 'backendUrl=', backendUrl ? 'set' : 'none', 'auth=', currentApiKey ? 'yes' : 'no');
       } catch (e) {
         log('Config load FAILED', e);
         configWarning.hidden = false;
@@ -1940,6 +1948,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           }
         }
         await startMic(ws);
+        if (window.Android) try { window.Android.startSession(); } catch(_) {}
         if (currentProjectId && currentBackendUrl) {
           deliveredTaskIds.clear();
           loadAgentTrackerForProject(currentProjectId);
@@ -2161,9 +2170,16 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
     (async () => {
       try {
-        const mod = await import('./config.js');
-        const url = (mod.BACKEND_URL || '').trim();
-        if (mod.API_KEY) currentApiKey = mod.API_KEY;
+        let url, authKey;
+        if (window.VOICE_AGENT_CONFIG) {
+          url = (window.VOICE_AGENT_CONFIG.BACKEND_URL || '').trim();
+          authKey = window.VOICE_AGENT_CONFIG.API_KEY;
+        } else {
+          const mod = await import('./config.js');
+          url = (mod.BACKEND_URL || '').trim();
+          authKey = mod.API_KEY;
+        }
+        if (authKey) currentApiKey = authKey;
         if (url) { currentBackendUrl = url.replace(/\/$/, ''); showProjectsSection(); }
       } catch (_) {}
     })();

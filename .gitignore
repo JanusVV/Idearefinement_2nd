@@ -5,3 +5,7 @@ backend/data/
 backend/verbose-logs/
 voice-agent/local.properties
 voice-agent/web-test/config.js
+voice-agent/.gradle/
+voice-agent/.idea/
+voice-agent/app/build/
+*.hprof

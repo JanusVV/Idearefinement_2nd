@@ -30,6 +30,23 @@ app.use((req, res, next) => {
   next();
 });
 
+const API_KEY = process.env.API_KEY;
+if (API_KEY) {
+  app.use((req, res, next) => {
+    if (req.path === '/health') return next();
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (token !== API_KEY) {
+      log.warn(`Auth failed: ${req.method} ${req.originalUrl} from ${req.ip}`);
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+  });
+  log.info('API key authentication enabled');
+} else {
+  log.warn('API_KEY not set — backend is UNPROTECTED');
+}
+
 app.use('/projects', projectsRouter);
 app.use('/workers', workersRouter);
 app.use('/agents', agentsRouter);
