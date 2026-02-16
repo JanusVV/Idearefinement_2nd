@@ -95,6 +95,9 @@
     .refinement-count { font-size: 0.75rem; color: #64748b; margin-left: 0.35rem; font-weight: normal; }
     .add-refinement-wrap { margin-top: 0.5rem; }
     .add-refinement-wrap textarea { width: 100%; min-height: 50px; padding: 0.4rem; font-size: 0.8rem; font-family: inherit; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; resize: vertical; box-sizing: border-box; }
+    .screen-detail .screen-content > div { margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #1e293b; white-space: pre-wrap; word-break: break-word; font-size: 0.8rem; color: #94a3b8; }
+    .screen-detail .screen-content > div:last-child { border-bottom: none; margin-bottom: 0; }
+    .screen-detail .screen-content > div:empty { display: none; margin: 0; padding: 0; border: none; }
     .agent-tracker { margin-top: 0.75rem; }
     .agent-tracker-title { font-size: 0.85rem; color: #e2e8f0; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
     .agent-tracker-title .active-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #facc15; animation: agent-pulse 1.2s ease-in-out infinite; }
@@ -151,24 +154,49 @@
   </div>
   <div class="transcript" id="transcript"></div>
   <div id="screenLayer" class="screen-layer" style="display: none; margin-bottom: 1rem; background: #0f172a; border-radius: 8px; padding: 1rem; font-size: 0.875rem;">
-    <div style="font-weight: bold; margin-bottom: 0.5rem;">Screen layer · <span id="screenProjectName" class="screen-project-name" style="font-weight: normal; color: #94a3b8;" title="Click to edit name">—</span></div>
-    <details class="screen-detail" open><summary>Idea Snapshot</summary><div id="screenSnapshot" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Track &amp; Rigor</summary><div id="screenTrackBlock" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Constraints</summary><div id="screenConstraints" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Current Phase &amp; Progress</summary><div id="screenPhaseBlock" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>MVP + Non-goals</summary><div id="screenMvp" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Assumptions &amp; Risks</summary><div id="screenRisks" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Validation Plan</summary><div id="screenValidationPlan" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Build Plan</summary><div id="screenBuildPlan" class="screen-content">—</div></details>
+    <div style="font-weight: bold; margin-bottom: 0.25rem;">
+      <span id="screenProjectName" class="screen-project-name" style="font-weight: bold; color: #e2e8f0; font-size: 1rem;" title="Click to edit name">—</span>
+    </div>
+    <div id="screenMeta" style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.75rem; line-height: 1.5;">
+      <span id="screenStatus">In Progress</span> · Phase <span id="screenPhaseNum">1</span>/7 ·
+      Confidence: <span id="screenConfidence">—</span> ·
+      <span id="screenTrackRigor">Personal / Light</span>
+    </div>
+    <div id="screenElevatorPitch" style="display: none; margin-bottom: 0.75rem; padding: 0.5rem 0.65rem; background: #1e293b; border-left: 3px solid #6366f1; border-radius: 4px; font-size: 0.8rem; color: #cbd5e1; font-style: italic;"></div>
+    <div style="margin-bottom: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button type="button" id="btnStructureIdea" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #f59e0b; color: #1e293b; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Structure Idea</button>
+      <button type="button" id="btnExportIdea" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer;">Export Refined Idea (.md)</button>
+      <button type="button" id="btnDownloadRefinements" class="dl-btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Refinement History (.md)</button>
+    </div>
+    <details class="screen-detail" id="phaseFoundation"><summary>Phase 1: Foundation</summary>
+      <div class="screen-content"><div id="screenSpark"></div><div id="screenProblemDef"></div><div id="screenSolutionOutline"></div><div id="screenMarketContext"></div></div>
+    </details>
+    <details class="screen-detail" id="phaseValidation"><summary>Phase 2: Validation</summary>
+      <div class="screen-content"><div id="screenProblemVal"></div><div id="screenSolutionVal"></div><div id="screenMarketAnalysis"></div><div id="screenEthicalImpact"></div></div>
+    </details>
+    <details class="screen-detail" id="phaseFeasibility"><summary>Phase 3: Feasibility</summary>
+      <div class="screen-content"><div id="screenProductReqs"></div><div id="screenArchitecture"></div><div id="screenUxDesign"></div><div id="screenTestPlanning"></div></div>
+    </details>
+    <details class="screen-detail" id="phaseViability"><summary>Phase 4: Viability</summary>
+      <div class="screen-content"><div id="screenBusinessModel"></div><div id="screenLegalCompliance"></div><div id="screenSustainability"></div></div>
+    </details>
+    <details class="screen-detail" id="phaseGtm"><summary>Phase 5: Go-to-Market</summary>
+      <div class="screen-content"><div id="screenBranding"></div><div id="screenMarketing"></div><div id="screenLaunchStrategy"></div></div>
+    </details>
+    <details class="screen-detail" id="phaseExecution"><summary>Phase 6: Execution</summary>
+      <div class="screen-content"><div id="screenMetricsKPIs"></div><div id="screenRiskMgmt"></div></div>
+    </details>
+    <details class="screen-detail" id="phaseSynthesis"><summary>Phase 7: Synthesis</summary>
+      <div class="screen-content"><div id="screenConfBreakdown"></div><div id="screenDecisionLog"></div><div id="screenLeanCanvas"></div><div id="screenHandoff"></div></div>
+    </details>
     <details class="screen-detail"><summary>Open Questions &amp; Next Actions</summary><div id="screenQuestionsActions" class="screen-content">—</div></details>
     <div id="agentTracker" class="agent-tracker" style="display: none;">
       <div class="agent-tracker-title"><span id="agentTrackerDot" class="active-dot" style="display: none;"></span> Agent Activity <span id="agentTrackerCount" style="font-size: 0.7rem; color: #64748b; font-weight: normal;"></span></div>
       <div id="agentCardList"></div>
     </div>
-    <details class="screen-detail" id="refinementSection" open>
+    <details class="screen-detail" id="refinementSection">
       <summary>Refinement History <span id="refinementCount" class="refinement-count"></span></summary>
       <div class="refinement-actions">
-        <button type="button" id="btnDownloadRefinements" class="dl-btn">Download as .md</button>
         <button type="button" id="btnRefreshRefinements">Refresh</button>
       </div>
       <ul id="refinementList" class="refinement-list screen-content">
@@ -229,7 +257,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let currentProjectId = null;
     let currentBackendUrl = null;
 
-    const REGISTRY_PATCH_KEYS = ['projectId', 'switchToProjectName', 'createNewProject', 'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions', 'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals', 'validationPlan', 'buildPlan', 'moduleState'];
+    const REGISTRY_PATCH_KEYS = ['projectId', 'switchToProjectName', 'createNewProject', 'name', 'snapshot', 'track', 'rigor', 'rigorOverrides', 'phase', 'backlog', 'risks', 'decisions', 'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals', 'validationPlan', 'buildPlan', 'moduleState', 'elevatorPitch', 'ideaConfidence', 'status', 'sessionCount', 'foundation', 'validation', 'feasibility', 'viability', 'goToMarket', 'execution', 'synthesis'];
     function extractJsonPatch(text) {
       if (!text || typeof text !== 'string') return null;
       const m = text.match(/---JSON---\s*([\s\S]*?)---JSON---/);
@@ -436,6 +464,185 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       }
     }
 
+    /* ── Section content extraction: captures model's spoken analysis into phase fields ── */
+    const SECTION_NUMBER_MAP = {
+      '1.1': 'foundation.spark', '1.2': 'foundation.problemDefinition',
+      '1.3': 'foundation.solutionOutline', '1.4': 'foundation.marketContext',
+      '2.1': 'validation.problemValidation', '2.2': 'validation.solutionValidation',
+      '2.3': 'validation.marketAnalysis', '2.4': 'validation.ethicalImpact',
+      '3.1': 'feasibility.productRequirements', '3.2': 'feasibility.architecture',
+      '3.3': 'feasibility.uxDesign', '3.4': 'feasibility.testPlanning',
+      '4.1': 'viability.businessModel', '4.2': 'viability.legalCompliance',
+      '4.3': 'viability.sustainability',
+      '5.1': 'goToMarket.branding', '5.2': 'goToMarket.marketing',
+      '5.3': 'goToMarket.launchStrategy',
+      '6.1': 'execution.metricsKPIs', '6.2': 'execution.riskManagement',
+      '7.1': 'synthesis.confidenceBreakdown', '7.2': 'synthesis.handoffChecklist',
+    };
+    const SECTION_KEYWORD_MAP = [
+      { re: /(?:the\s+)?spark|origin\s+of.*idea|inspiration|where.*idea\s+come|how.*idea\s+start/i, field: 'foundation.spark' },
+      { re: /problem\s+(?:definition|statement)|five\s+whys|root\s+(?:problem|cause)|target\s+audience|who.*(?:for|serve|help)/i, field: 'foundation.problemDefinition' },
+      { re: /solution\s+outline|core\s+solution|(?:main|key)\s+(?:feature|benefit)|how.*(?:solve|work|address)/i, field: 'foundation.solutionOutline' },
+      { re: /market\s+context|competitor|competitive\s+landscape|market\s+trend/i, field: 'foundation.marketContext' },
+      { re: /problem\s+validation|evidence|pain\s+(?:point|score)|current\s+alternative/i, field: 'validation.problemValidation' },
+      { re: /solution\s+validation|unique\s+value|UVP|key\s+assumption|differentiat/i, field: 'validation.solutionValidation' },
+      { re: /market\s+analysis|ideal\s+customer|customer\s+(?:profile|segment)|ICP|TAM|SAM|SOM/i, field: 'validation.marketAnalysis' },
+      { re: /ethical\s+(?:impact|consideration)|privacy\s+concern|data\s+ethics/i, field: 'validation.ethicalImpact' },
+      { re: /product\s+requirements?|MVP\s+(?:scope|feature)|MoSCoW|must[\s-]have|acceptance\s+criteria/i, field: 'feasibility.productRequirements' },
+      { re: /architecture|(?:recommended|tech)\s+stack|(?:backend|frontend)\s+(?:framework|technology)|API\s+(?:design|spec)/i, field: 'feasibility.architecture' },
+      { re: /UX\s+design|user\s+(?:flow|journey|experience)|wireframe|onboarding\s+flow|accessibility/i, field: 'feasibility.uxDesign' },
+      { re: /test\s+(?:planning|strategy)|quality\s+(?:metric|assurance)|QA\s+plan/i, field: 'feasibility.testPlanning' },
+      { re: /business\s+model|revenue\s+(?:model|stream)|pricing|monetiz|unit\s+economics|break[\s-]even/i, field: 'viability.businessModel' },
+      { re: /legal\s+(?:compliance|requirement)|regulatory|intellectual\s+property|IP\s+(?:protection|assessment)/i, field: 'viability.legalCompliance' },
+      { re: /sustainability|social\s+impact|environmental/i, field: 'viability.sustainability' },
+      { re: /brand(?:ing|\s+identity)|tagline|visual\s+(?:direction|identity)|tone\s+of\s+voice/i, field: 'goToMarket.branding' },
+      { re: /marketing\s+(?:channel|strategy|plan)|retention|growth\s+(?:hack|strategy)|social\s+proof/i, field: 'goToMarket.marketing' },
+      { re: /launch\s+(?:strategy|plan)|pre[\s-]launch|go[\s-]to[\s-]market|launch\s+type/i, field: 'goToMarket.launchStrategy' },
+      { re: /(?:key\s+)?metrics|KPIs?|north\s+star\s+metric|success\s+(?:metric|measure)/i, field: 'execution.metricsKPIs' },
+      { re: /risk\s+(?:management|register|assessment)|kill\s+criteria|mitigation/i, field: 'execution.riskManagement' },
+      { re: /confidence\s+(?:breakdown|score|assessment)/i, field: 'synthesis.confidenceBreakdown' },
+      { re: /decision\s+log|key\s+decisions?\s+made/i, field: 'synthesis.decisionLog' },
+      { re: /lean\s+canvas/i, field: 'synthesis.leanCanvas' },
+      { re: /handoff\s+(?:checklist|document)|deliverable|artifact/i, field: 'synthesis.handoffChecklist' },
+    ];
+
+    function identifySectionField(headerText) {
+      const numMatch = headerText.match(/\((\d\.\d)\)/);
+      if (numMatch && SECTION_NUMBER_MAP[numMatch[1]]) return SECTION_NUMBER_MAP[numMatch[1]];
+      const inlineNum = headerText.match(/\b(\d\.\d)\b/);
+      if (inlineNum && SECTION_NUMBER_MAP[inlineNum[1]]) return SECTION_NUMBER_MAP[inlineNum[1]];
+      for (const entry of SECTION_KEYWORD_MAP) {
+        if (entry.re.test(headerText)) return entry.field;
+      }
+      return null;
+    }
+
+    function buildNestedPatch(fieldPath, value) {
+      const [phase, sub] = fieldPath.split('.');
+      if (!sub) return { [phase]: value };
+      return { [phase]: { [sub]: value } };
+    }
+
+    let _lastSectionExtractHash = '';
+
+    function setNestedField(patch, fieldPath, value) {
+      const [phase, sub] = fieldPath.split('.');
+      if (sub) {
+        if (!patch[phase]) patch[phase] = {};
+        patch[phase][sub] = value;
+      } else {
+        patch[phase] = value;
+      }
+    }
+
+    function appendExistingContent(patch, project) {
+      for (const [key, value] of Object.entries(patch)) {
+        if (key.startsWith('_') || typeof value !== 'object' || value === null) continue;
+        const existing = project[key];
+        if (!existing || typeof existing !== 'object') continue;
+        for (const [sub, subVal] of Object.entries(value)) {
+          if (typeof subVal === 'string' && existing[sub] && typeof existing[sub] === 'string') {
+            if (!existing[sub].includes(subVal.slice(0, 60))) {
+              patch[key][sub] = existing[sub] + '\n\n---\n\n' + subVal;
+            }
+          }
+        }
+      }
+    }
+
+    async function tryExtractSectionContent(fullTurnText, projectId, backendUrl) {
+      if (!fullTurnText || !projectId || !backendUrl) return;
+      if (fullTurnText.length < 40) return;
+      const hash = fullTurnText.length + ':' + fullTurnText.slice(-50);
+      if (hash === _lastSectionExtractHash) return;
+      _lastSectionExtractHash = hash;
+      const base = backendUrl.replace(/\/$/, '');
+
+      /* Strategy 1: Markdown headers (### ...) */
+      const headerRe = /#{2,4}\s+(.+?)(?:\n|$)/g;
+      const headerHits = [];
+      let m;
+      while ((m = headerRe.exec(fullTurnText)) !== null) {
+        headerHits.push({ header: m[1].trim(), matchStart: m.index, contentStart: m.index + m[0].length });
+      }
+
+      /* Strategy 2: Section number references (section 1.1, for 3.2, 1.1 —, etc.) */
+      const sectionRefRe = /(?:section\s+|for\s+|^|\.\s+)(\d\.\d)\b\s*[—–\-:,\.]/gim;
+      const sectionHits = [];
+      while ((m = sectionRefRe.exec(fullTurnText)) !== null) {
+        const num = m[1];
+        if (SECTION_NUMBER_MAP[num] && !sectionHits.some(h => h.num === num)) {
+          sectionHits.push({ num, field: SECTION_NUMBER_MAP[num], matchStart: m.index, contentStart: m.index + m[0].length });
+        }
+      }
+
+      /* Strategy 3: Keyword-based fallback on full turn text */
+      let keywordField = null;
+      if (headerHits.length === 0 && sectionHits.length === 0 && fullTurnText.length > 60) {
+        let bestScore = 0;
+        for (const entry of SECTION_KEYWORD_MAP) {
+          const km = fullTurnText.match(entry.re);
+          if (km) {
+            const score = km[0].length + (entry.field.includes('.') ? 2 : 0);
+            if (score > bestScore) { bestScore = score; keywordField = entry.field; }
+          }
+        }
+        if (keywordField) log('Section extraction (keyword fallback): → ' + keywordField);
+      }
+
+      /* Build merged patch */
+      const mergedPatch = {};
+
+      if (headerHits.length > 0) {
+        for (let i = 0; i < headerHits.length; i++) {
+          const contentEnd = i + 1 < headerHits.length ? headerHits[i + 1].matchStart : fullTurnText.length;
+          const content = fullTurnText.slice(headerHits[i].contentStart, contentEnd).trim();
+          if (content.length < 20) continue;
+          const field = identifySectionField(headerHits[i].header);
+          if (!field) continue;
+          setNestedField(mergedPatch, field, '### ' + headerHits[i].header + '\n' + content);
+          log('Section extraction (header): "' + headerHits[i].header.slice(0, 40) + '" → ' + field);
+        }
+      }
+
+      if (Object.keys(mergedPatch).length === 0 && sectionHits.length > 0) {
+        sectionHits.sort((a, b) => a.matchStart - b.matchStart);
+        for (let i = 0; i < sectionHits.length; i++) {
+          const contentEnd = i + 1 < sectionHits.length ? sectionHits[i + 1].matchStart : fullTurnText.length;
+          const content = fullTurnText.slice(sectionHits[i].contentStart, contentEnd).trim();
+          if (content.length < 20) continue;
+          setNestedField(mergedPatch, sectionHits[i].field, content);
+          log('Section extraction (ref ' + sectionHits[i].num + '): → ' + sectionHits[i].field);
+        }
+      }
+
+      if (Object.keys(mergedPatch).length === 0 && keywordField) {
+        setNestedField(mergedPatch, keywordField, fullTurnText.trim());
+        log('Section extraction (keyword): → ' + keywordField);
+      }
+
+      if (Object.keys(mergedPatch).length === 0) return;
+
+      /* Fetch current project and APPEND to existing content instead of overwriting */
+      try {
+        const curRes = await fetch(base + '/projects/' + encodeURIComponent(projectId));
+        if (curRes.ok) appendExistingContent(mergedPatch, await curRes.json());
+      } catch (_) { /* overwrite if fetch fails */ }
+
+      mergedPatch._refinementNote = 'Auto-captured from voice analysis';
+      mergedPatch._refinementSource = 'voice';
+      try {
+        const res = await fetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mergedPatch) });
+        if (res.ok) {
+          const project = await res.json();
+          updateScreenLayer(project);
+          await refreshProjectsList();
+          syncProjectsSelectToCurrent();
+          log('Section extraction: patched', Object.keys(mergedPatch).filter(k => !k.startsWith('_')).join(', '));
+        }
+      } catch (e) { log('Section extraction patch error', e); }
+    }
+
     async function tryApplyRegistryPatch(text, projectId, backendUrl) {
       const patch = extractJsonPatch(text);
       if (!patch || !backendUrl) return;
@@ -573,21 +780,67 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         nameEl.textContent = (project.name || '').trim() || 'Click to add name';
         nameEl.dataset.projectId = project.projectId || '';
       }
-      const set = (id, text) => { const e = document.getElementById(id); if (e) e.textContent = text || '—'; };
-      set('screenSnapshot', project.snapshot);
-      set('screenTrackBlock', (project.track || '—') + ' / ' + (project.rigor || '—') + (project.phase != null ? '  ·  Phase ' + project.phase : ''));
-      set('screenConstraints', Array.isArray(project.constraints) ? project.constraints.join('\n') : (project.constraints || ''));
-      set('screenPhaseBlock', 'Phase ' + (project.phase != null ? project.phase : '—') + (project.lastActiveAt ? '\nLast active: ' + project.lastActiveAt : ''));
-      set('screenMvp', ('MVP: ' + (project.mvp || '—') + '\n\nNon-goals: ' + (project.nonGoals || '—')).trim());
-      const risksStr = Array.isArray(project.risks) && project.risks.length
-        ? project.risks.map(r => (typeof r === 'object' && r !== null && (r.label || r.id)) ? (r.label || r.id) + (r.mitigation ? ' — ' + r.mitigation : '') : String(r)).join('\n')
-        : '';
-      set('screenRisks', risksStr);
-      set('screenValidationPlan', project.validationPlan);
-      set('screenBuildPlan', project.buildPlan);
+      const set = (id, text) => { const e = document.getElementById(id); if (e) e.textContent = text || ''; };
+      const setHtml = (id, text) => { const e = document.getElementById(id); if (e) e.innerHTML = text ? escHtml(text).replace(/\n/g, '<br>') : ''; };
+
+      set('screenStatus', project.status || 'In Progress');
+      set('screenPhaseNum', project.phase != null ? project.phase : '1');
+      set('screenConfidence', project.ideaConfidence != null ? project.ideaConfidence + '%' : '—');
+      const overrides = project.rigorOverrides ? ' | ' + project.rigorOverrides : '';
+      set('screenTrackRigor', (project.track || 'Personal') + ' / ' + (project.rigor || 'Light') + overrides);
+
+      const pitchEl = document.getElementById('screenElevatorPitch');
+      if (pitchEl) {
+        if (project.elevatorPitch) { pitchEl.textContent = project.elevatorPitch; pitchEl.style.display = 'block'; }
+        else { pitchEl.style.display = 'none'; }
+      }
+
+      const f = project.foundation || {};
+      setHtml('screenSpark', f.spark ? '**The Spark**\n' + f.spark : '');
+      setHtml('screenProblemDef', f.problemDefinition ? '**Problem Definition**\n' + f.problemDefinition : '');
+      setHtml('screenSolutionOutline', f.solutionOutline ? '**Solution Outline**\n' + f.solutionOutline : '');
+      setHtml('screenMarketContext', f.marketContext ? '**Market Context**\n' + f.marketContext : '');
+      const hasFoundation = f.spark || f.problemDefinition || f.solutionOutline || f.marketContext;
+      const foundationEl = document.getElementById('phaseFoundation');
+      if (foundationEl) { if (hasFoundation) foundationEl.open = true; }
+
+      const v = project.validation || {};
+      setHtml('screenProblemVal', v.problemValidation ? '**Problem Validation**\n' + v.problemValidation : '');
+      setHtml('screenSolutionVal', v.solutionValidation ? '**Solution Validation & UVP**\n' + v.solutionValidation : '');
+      setHtml('screenMarketAnalysis', v.marketAnalysis ? '**Market & Audience**\n' + v.marketAnalysis : '');
+      setHtml('screenEthicalImpact', v.ethicalImpact ? '**Ethical Impact**\n' + v.ethicalImpact : '');
+
+      const fe = project.feasibility || {};
+      setHtml('screenProductReqs', fe.productRequirements ? '**Product Requirements**\n' + fe.productRequirements : '');
+      setHtml('screenArchitecture', fe.architecture ? '**Architecture**\n' + fe.architecture : '');
+      setHtml('screenUxDesign', fe.uxDesign ? '**UX/UI**\n' + fe.uxDesign : '');
+      setHtml('screenTestPlanning', fe.testPlanning ? '**Test Planning**\n' + fe.testPlanning : '');
+
+      const vi = project.viability || {};
+      setHtml('screenBusinessModel', vi.businessModel ? '**Business Model**\n' + vi.businessModel : '');
+      setHtml('screenLegalCompliance', vi.legalCompliance ? '**Legal & Compliance**\n' + vi.legalCompliance : '');
+      setHtml('screenSustainability', vi.sustainability ? '**Sustainability**\n' + vi.sustainability : '');
+
+      const gtm = project.goToMarket || {};
+      setHtml('screenBranding', gtm.branding ? '**Branding**\n' + gtm.branding : '');
+      setHtml('screenMarketing', gtm.marketing ? '**Marketing**\n' + gtm.marketing : '');
+      setHtml('screenLaunchStrategy', gtm.launchStrategy ? '**Launch Strategy**\n' + gtm.launchStrategy : '');
+
+      const ex = project.execution || {};
+      setHtml('screenMetricsKPIs', ex.metricsKPIs ? '**Metrics & KPIs**\n' + ex.metricsKPIs : '');
+      setHtml('screenRiskMgmt', ex.riskManagement ? '**Risk Management**\n' + ex.riskManagement : '');
+
+      const sy = project.synthesis || {};
+      setHtml('screenConfBreakdown', sy.confidenceBreakdown ? '**Confidence**\n' + sy.confidenceBreakdown : '');
+      setHtml('screenDecisionLog', sy.decisionLog ? '**Decisions**\n' + sy.decisionLog : '');
+      setHtml('screenLeanCanvas', sy.leanCanvas ? '**Lean Canvas**\n' + sy.leanCanvas : '');
+      setHtml('screenHandoff', sy.handoffChecklist ? '**Handoff**\n' + sy.handoffChecklist : '');
+
       const q = (project.openQuestions || []);
       const a = (project.nextActions || []);
-      set('screenQuestionsActions', (q.length ? 'Open questions:\n' + q.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') + '\n\n' : '') + (a.length ? 'Next actions:\n' + a.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') : '') || '—');
+      const qaEl = document.getElementById('screenQuestionsActions');
+      if (qaEl) qaEl.textContent = (q.length ? 'Open questions:\n' + q.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') + '\n\n' : '') + (a.length ? 'Next actions:\n' + a.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') : '') || '—';
+
       renderRefinements(project.refinements);
       const reg = document.getElementById('screenRegistry');
       if (reg) reg.textContent = JSON.stringify(project, null, 2);
@@ -882,6 +1135,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let userFlushTimer = null;
     let modelTranscriptBuffer = '';
     let modelFlushTimer = null;
+    let modelTurnTranscript = '';
     const TRANSCRIPT_FLUSH_MS = 700;
     /** Ignore inputTranscription for this long after model output/audio (avoids attributing echoed model speech to user) */
     const ECHO_SUPPRESS_MS = 800;
@@ -1260,6 +1514,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
               tryExtractFromSpeech(outputT.text, currentProjectId, currentBackendUrl);
             }
             modelTranscriptBuffer += outputT.text;
+            modelTurnTranscript += outputT.text;
             if (currentProjectId && currentBackendUrl) {
               tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
               tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
@@ -1333,6 +1588,10 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
               tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
               tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
               tryExtractFromSpeech(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+            }
+            if (modelTurnTranscript && currentProjectId && currentBackendUrl) {
+              tryExtractSectionContent(modelTurnTranscript, currentProjectId, currentBackendUrl);
+              modelTurnTranscript = '';
             }
           }
           if (c && !inputT?.text && !outputT?.text && (!parts || !parts.length)) {
@@ -1505,6 +1764,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       modelIsSpeaking = false;
       flushUserTranscript();
       flushModelTranscript();
+      modelTurnTranscript = '';
       if (micMeterInterval) {
         clearInterval(micMeterInterval);
         micMeterInterval = null;
@@ -1806,6 +2066,80 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     document.getElementById('btnFrameworkLoad')?.addEventListener('click', () => loadFramework());
     document.getElementById('btnFrameworkSave')?.addEventListener('click', () => saveFramework());
     document.getElementById('btnDownloadRefinements')?.addEventListener('click', () => downloadRefinementsMd());
+    document.getElementById('btnStructureIdea')?.addEventListener('click', async () => {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const btn = document.getElementById('btnStructureIdea');
+      const origText = btn.textContent;
+      btn.textContent = 'Structuring...';
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      try {
+        const transcriptLines = [];
+        document.querySelectorAll('#transcript .line').forEach(el => {
+          const label = el.querySelector('.label')?.textContent?.trim() || '';
+          const text = el.textContent.replace(label, '').trim();
+          if (text) transcriptLines.push((label ? label + ' ' : '') + text);
+        });
+        const transcript = transcriptLines.join('\n');
+        const r = await fetch(base + '/projects/' + encodeURIComponent(currentProjectId) + '/structure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript }) });
+        if (r.ok) {
+          const project = await r.json();
+          updateScreenLayer(project);
+          await refreshProjectsList();
+          syncProjectsSelectToCurrent();
+          log('Document structured successfully');
+          btn.textContent = 'Structured!';
+          btn.style.background = '#22c55e';
+          setTimeout(() => { btn.textContent = origText; btn.style.background = '#f59e0b'; }, 3000);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          log('Structure failed', r.status, err.error);
+          btn.textContent = 'Failed';
+          btn.style.background = '#ef4444';
+          setTimeout(() => { btn.textContent = origText; btn.style.background = '#f59e0b'; }, 3000);
+        }
+      } catch (e) {
+        log('Structure error', e);
+        btn.textContent = 'Error';
+        setTimeout(() => { btn.textContent = origText; btn.style.background = '#f59e0b'; }, 3000);
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    });
+    document.getElementById('btnExportIdea')?.addEventListener('click', async () => {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const btn = document.getElementById('btnExportIdea');
+      const origText = btn.textContent;
+      btn.textContent = 'Structuring & exporting...';
+      btn.disabled = true;
+      try {
+        const transcriptLines = [];
+        document.querySelectorAll('#transcript .line').forEach(el => {
+          const label = el.querySelector('.label')?.textContent?.trim() || '';
+          const text = el.textContent.replace(label, '').trim();
+          if (text) transcriptLines.push((label ? label + ' ' : '') + text);
+        });
+        const transcript = transcriptLines.join('\n');
+        if (transcript.length > 50) {
+          await fetch(base + '/projects/' + encodeURIComponent(currentProjectId) + '/structure', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript }) });
+        }
+        const r = await fetch(base + '/projects/' + encodeURIComponent(currentProjectId) + '/export');
+        if (!r.ok) { log('Export failed', r.status); return; }
+        const blob = await r.blob();
+        const disp = r.headers.get('Content-Disposition') || '';
+        const fnMatch = disp.match(/filename="?([^"]+)"?/);
+        const filename = fnMatch ? fnMatch[1] : 'REFINED_IDEA.md';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        URL.revokeObjectURL(url);
+        log('Exported refined idea');
+      } catch (e) { log('Export error', e); }
+      finally { btn.textContent = origText; btn.disabled = false; }
+    });
     document.getElementById('btnAddRefinement')?.addEventListener('click', () => addManualRefinement());
     document.getElementById('btnRefreshRefinements')?.addEventListener('click', async () => {
       if (!currentProjectId || !currentBackendUrl) return;

@@ -56,6 +56,14 @@ const DEFAULT_AGENTS = [
     config: detectDefaultLLMConfig(),
     enabled: true,
   },
+  {
+    agentId: 'documentPolisher',
+    name: 'Document Structurer',
+    description: 'Transform raw conversational notes into structured professional documentation.',
+    workerType: 'documentPolisher',
+    config: detectDefaultLLMConfig(),
+    enabled: true,
+  },
 ];
 
 function ensureDir() {

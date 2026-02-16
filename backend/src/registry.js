@@ -11,11 +11,56 @@ const DATA_DIR = process.env.REGISTRY_DATA_DIR || path.join(process.cwd(), 'data
 const DEFAULT_PROJECT = {
   projectId: null,
   name: '',
-  snapshot: '',
+  status: 'In Progress',
+  ideaConfidence: null,
   track: 'Personal',
   rigor: 'Light',
+  rigorOverrides: '',
   phase: 1,
-  backlog: [],
+  sessionCount: 0,
+  elevatorPitch: '',
+
+  foundation: {
+    spark: '',
+    problemDefinition: '',
+    solutionOutline: '',
+    marketContext: '',
+  },
+  validation: {
+    problemValidation: '',
+    solutionValidation: '',
+    marketAnalysis: '',
+    ethicalImpact: '',
+  },
+  feasibility: {
+    productRequirements: '',
+    architecture: '',
+    uxDesign: '',
+    testPlanning: '',
+  },
+  viability: {
+    businessModel: '',
+    legalCompliance: '',
+    sustainability: '',
+  },
+  goToMarket: {
+    branding: '',
+    marketing: '',
+    launchStrategy: '',
+  },
+  execution: {
+    metricsKPIs: '',
+    riskManagement: '',
+  },
+  synthesis: {
+    confidenceBreakdown: '',
+    decisionLog: '',
+    leanCanvas: '',
+    handoffChecklist: '',
+  },
+
+  // Legacy flat fields kept for cross-cutting data
+  snapshot: '',
   risks: [],
   decisions: [],
   openQuestions: [],
@@ -27,6 +72,7 @@ const DEFAULT_PROJECT = {
   validationPlan: '',
   buildPlan: '',
   lastActiveAt: null,
+  lastStructuredAt: null,
   version: 1,
   moduleState: {},
   agentResults: [],
@@ -58,6 +104,12 @@ function save(project) {
   return project;
 }
 
+/** Phase object keys that use deep merge (spread existing + incoming). */
+const PHASE_OBJECT_KEYS = new Set([
+  'foundation', 'validation', 'feasibility', 'viability',
+  'goToMarket', 'execution', 'synthesis',
+]);
+
 /**
  * Build a human-readable summary of which fields a patch changes.
  */
@@ -67,7 +119,10 @@ function buildChangeSummary(project, patch, allowed) {
     if (!allowed.has(key) || value === undefined) continue;
     const old = project[key];
     if (JSON.stringify(old) === JSON.stringify(value)) continue;
-    if (Array.isArray(value)) {
+    if (PHASE_OBJECT_KEYS.has(key) && typeof value === 'object' && value !== null) {
+      const subKeys = Object.keys(value).filter(k => value[k] !== undefined && value[k] !== '');
+      if (subKeys.length) parts.push(`${key}: ${subKeys.join(', ')} updated`);
+    } else if (Array.isArray(value)) {
       const oldLen = Array.isArray(old) ? old.length : 0;
       parts.push(`${key}: ${oldLen} → ${value.length} items`);
     } else if (typeof value === 'string' && value.length > 0) {
@@ -84,6 +139,8 @@ function buildChangeSummary(project, patch, allowed) {
 
 /**
  * Apply a patch to a project. Only top-level keys present in patch are updated.
+ * Phase objects (foundation, validation, etc.) are deep-merged so individual
+ * subsections can be patched without overwriting siblings.
  * Automatically records a refinement entry capturing what changed.
  *
  * Special patch keys (stripped before applying):
@@ -94,7 +151,11 @@ function applyPatch(project, patch) {
   const allowed = new Set([
     'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions',
     'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals',
-    'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt', 'agentResults'
+    'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt', 'agentResults',
+    'status', 'ideaConfidence', 'rigorOverrides', 'sessionCount', 'elevatorPitch',
+    'lastStructuredAt',
+    'foundation', 'validation', 'feasibility', 'viability',
+    'goToMarket', 'execution', 'synthesis',
   ]);
 
   const refinementNote = patch._refinementNote || '';
@@ -107,7 +168,13 @@ function applyPatch(project, patch) {
 
   const next = { ...project };
   for (const [key, value] of Object.entries(cleanPatch)) {
-    if (allowed.has(key) && value !== undefined) next[key] = value;
+    if (!allowed.has(key) || value === undefined) continue;
+    if (PHASE_OBJECT_KEYS.has(key) && typeof value === 'object' && value !== null) {
+      const existing = (typeof next[key] === 'object' && next[key] !== null) ? next[key] : {};
+      next[key] = { ...existing, ...value };
+    } else {
+      next[key] = value;
+    }
   }
   if (cleanPatch.phase !== undefined) next.phase = cleanPatch.phase;
 
@@ -133,8 +200,9 @@ function applyPatch(project, patch) {
 
 function create(overrides = {}) {
   const projectId = overrides.projectId || uuidv4();
+  const base = JSON.parse(JSON.stringify(DEFAULT_PROJECT));
   const project = {
-    ...DEFAULT_PROJECT,
+    ...base,
     projectId,
     ...overrides,
     lastActiveAt: new Date().toISOString(),
@@ -151,7 +219,7 @@ function list() {
   return files.map((f) => {
     const id = f.replace(/\.json$/, '');
     const p = load(id);
-    return p ? { projectId: p.projectId, name: p.name || '', snapshot: p.snapshot, phase: p.phase, lastActiveAt: p.lastActiveAt } : null;
+    return p ? { projectId: p.projectId, name: p.name || '', snapshot: p.snapshot || p.elevatorPitch, phase: p.phase, status: p.status, lastActiveAt: p.lastActiveAt } : null;
   }).filter(Boolean);
 }
 
@@ -221,6 +289,54 @@ function refinementsToMarkdown(project) {
   return lines.join('\n');
 }
 
+/** Phase layout for markdown export: [phaseKey, heading, [[fieldKey, subHeading], ...]] */
+const PHASE_LAYOUT = [
+  ['foundation', 'Phase 1: Foundation', [['spark', '1.1 The Spark'], ['problemDefinition', '1.2 Problem Definition'], ['solutionOutline', '1.3 Solution Outline'], ['marketContext', '1.4 Market Context']]],
+  ['validation', 'Phase 2: Validation', [['problemValidation', '2.1 Problem Validation'], ['solutionValidation', '2.2 Solution Validation & UVP'], ['marketAnalysis', '2.3 Market & Audience Analysis'], ['ethicalImpact', '2.4 Ethical & Societal Impact']]],
+  ['feasibility', 'Phase 3: Technical & Operational Feasibility', [['productRequirements', '3.1 Product Definition & Requirements'], ['architecture', '3.2 System Architecture & Technical Planning'], ['uxDesign', '3.3 UX/UI & Accessibility'], ['testPlanning', '3.4 Quality Engineering & Test Planning']]],
+  ['viability', 'Phase 4: Viability & Business Model', [['businessModel', '4.1 Business Model & Financial Viability'], ['legalCompliance', '4.2 Legal, IP & Regulatory Compliance'], ['sustainability', '4.3 Sustainability & Social Impact']]],
+  ['goToMarket', 'Phase 5: Go-to-Market Strategy', [['branding', '5.1 Branding & Positioning'], ['marketing', '5.2 Marketing & Customer Acquisition'], ['launchStrategy', '5.3 Launch Strategy']]],
+  ['execution', 'Phase 6: Execution & Iteration', [['metricsKPIs', '6.1 Metrics & Feedback'], ['riskManagement', '6.2 Risk & Stakeholder Management']]],
+  ['synthesis', 'Phase 7: Synthesis & Next Steps', [['confidenceBreakdown', 'Idea Confidence Breakdown'], ['decisionLog', 'Decision Log'], ['leanCanvas', 'Lean Canvas'], ['handoffChecklist', 'Handoff Checklist']]],
+];
+
+/**
+ * Export the full refined idea as a structured Markdown document
+ * matching the 7-phase output format.
+ */
+function projectToMarkdown(project) {
+  const name = project.name || 'Untitled Idea';
+  const confidence = project.ideaConfidence != null ? `${project.ideaConfidence}%` : '—';
+  const overrides = project.rigorOverrides ? ` | **Rigor Overrides:** ${project.rigorOverrides}` : '';
+  const sessions = project.sessionCount || '—';
+  const lines = [];
+  const push = (...l) => lines.push(...l);
+
+  push(`# Refined Idea Output — ${name}`, '',
+    `> **Project ID:** \`${project.projectId || '—'}\``,
+    `> **Status:** ${project.status || 'In Progress'}`,
+    `> **Idea Confidence:** ${confidence}`,
+    `> **Track:** ${project.track || '—'} | **Global Rigor:** ${project.rigor || '—'}${overrides}`,
+    `> **Last Updated:** ${project.lastActiveAt || new Date().toISOString()}`,
+    `> **Sessions:** ${sessions}`, '', '---', '');
+
+  if (project.elevatorPitch) push('## Elevator Pitch', '', project.elevatorPitch, '', '---', '');
+
+  for (const [key, heading, subs] of PHASE_LAYOUT) {
+    const data = project[key] || {};
+    const filled = subs.filter(([k]) => data[k]);
+    if (!filled.length) continue;
+    push(`## ${heading}`, '');
+    for (const [k, subH] of filled) push(`### ${subH}`, '', data[k], '');
+    push('---', '');
+  }
+
+  const refs = Array.isArray(project.refinements) ? project.refinements : [];
+  const agents = (Array.isArray(project.agentResults) ? project.agentResults : []).length;
+  push(`*Generated by ${name} idea refinement session • ${sessions} sessions • ${refs.length} refinement entries • ${agents} agent calls*`);
+  return lines.join('\n');
+}
+
 module.exports = {
   load,
   save,
@@ -229,6 +345,7 @@ module.exports = {
   list,
   addRefinement,
   refinementsToMarkdown,
+  projectToMarkdown,
   DEFAULT_PROJECT,
   DATA_DIR,
 };

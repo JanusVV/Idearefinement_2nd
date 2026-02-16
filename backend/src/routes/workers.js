@@ -11,6 +11,7 @@ const workers = {
   competitorScan: require('../workers/competitorScan'),
   riskRegister: require('../workers/riskRegister'),
   ossDiscovery: require('../workers/ossDiscovery'),
+  documentPolisher: require('../workers/documentPolisher'),
 };
 
 const router = express.Router();
