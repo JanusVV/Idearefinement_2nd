@@ -4,8 +4,6 @@
 
 const express = require('express');
 const cors = require('cors');
-const projectsRouter = require('./routes/projects');
-const workersRouter = require('./routes/workers');
 const frameworkRouter = require('./routes/framework');
 const conductorPrompt = require('./prompts/conductor');
 const framework = require('./framework');
@@ -29,8 +27,6 @@ app.get('/prompts/conductor', (req, res) => {
     : basePrompt;
   res.type('text/plain').send(withFramework);
 });
-
-
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'idearefinement-backend' });
 });
