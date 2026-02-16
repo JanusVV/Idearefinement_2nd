@@ -29,7 +29,13 @@ router.post('/:jobType', async (req, res) => {
   try {
     const result = await worker.run(project);
     if (apply && result.suggestedPatch) {
-      project = registry.applyPatch(project, { ...result.suggestedPatch, projectId: project.projectId });
+      const workerPatch = {
+        ...result.suggestedPatch,
+        projectId: project.projectId,
+        _refinementSource: 'worker',
+        _refinementNote: `Worker "${jobType}" completed` + (result.confidence ? ` (confidence: ${result.confidence})` : ''),
+      };
+      project = registry.applyPatch(project, workerPatch);
       registry.save(project);
       return res.json({ ...result, project });
     }

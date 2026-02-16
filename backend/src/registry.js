@@ -30,6 +30,7 @@ const DEFAULT_PROJECT = {
   version: 1,
   moduleState: {},
   agentResults: [],
+  refinements: [],
 };
 
 function ensureDataDir() {
@@ -58,7 +59,36 @@ function save(project) {
 }
 
 /**
+ * Build a human-readable summary of which fields a patch changes.
+ */
+function buildChangeSummary(project, patch, allowed) {
+  const parts = [];
+  for (const [key, value] of Object.entries(patch)) {
+    if (!allowed.has(key) || value === undefined) continue;
+    const old = project[key];
+    if (JSON.stringify(old) === JSON.stringify(value)) continue;
+    if (Array.isArray(value)) {
+      const oldLen = Array.isArray(old) ? old.length : 0;
+      parts.push(`${key}: ${oldLen} → ${value.length} items`);
+    } else if (typeof value === 'string' && value.length > 0) {
+      const preview = value.length > 80 ? value.slice(0, 80) + '…' : value;
+      parts.push(`${key}: "${preview}"`);
+    } else if (typeof value === 'number') {
+      parts.push(`${key}: ${old ?? '—'} → ${value}`);
+    } else {
+      parts.push(`${key} updated`);
+    }
+  }
+  return parts.length ? parts.join('; ') : null;
+}
+
+/**
  * Apply a patch to a project. Only top-level keys present in patch are updated.
+ * Automatically records a refinement entry capturing what changed.
+ *
+ * Special patch keys (stripped before applying):
+ *   _refinementNote  – optional free-text note from the caller (e.g. model screen text)
+ *   _refinementSource – optional source label: 'voice' | 'worker' | 'manual' (default: 'voice')
  */
 function applyPatch(project, patch) {
   const allowed = new Set([
@@ -66,13 +96,38 @@ function applyPatch(project, patch) {
     'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals',
     'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt', 'agentResults'
   ]);
+
+  const refinementNote = patch._refinementNote || '';
+  const refinementSource = patch._refinementSource || 'voice';
+  const cleanPatch = { ...patch };
+  delete cleanPatch._refinementNote;
+  delete cleanPatch._refinementSource;
+
+  const changeSummary = buildChangeSummary(project, cleanPatch, allowed);
+
   const next = { ...project };
-  for (const [key, value] of Object.entries(patch)) {
+  for (const [key, value] of Object.entries(cleanPatch)) {
     if (allowed.has(key) && value !== undefined) next[key] = value;
   }
-  if (patch.phase !== undefined) next.phase = patch.phase;
+  if (cleanPatch.phase !== undefined) next.phase = cleanPatch.phase;
+
+  const now = new Date().toISOString();
   next.version = (next.version || 1) + 1;
-  next.lastActiveAt = new Date().toISOString();
+  next.lastActiveAt = now;
+
+  if (changeSummary) {
+    if (!Array.isArray(next.refinements)) next.refinements = [];
+    next.refinements.push({
+      id: uuidv4(),
+      timestamp: now,
+      version: next.version,
+      phase: next.phase,
+      source: refinementSource,
+      summary: refinementNote || changeSummary,
+      fieldsChanged: changeSummary,
+    });
+  }
+
   return next;
 }
 
@@ -100,12 +155,80 @@ function list() {
   }).filter(Boolean);
 }
 
+/**
+ * Add a manual refinement entry to a project (no patch required).
+ */
+function addRefinement(project, { summary, source = 'manual' }) {
+  const now = new Date().toISOString();
+  if (!Array.isArray(project.refinements)) project.refinements = [];
+  const entry = {
+    id: uuidv4(),
+    timestamp: now,
+    version: project.version,
+    phase: project.phase,
+    source,
+    summary: summary || '',
+    fieldsChanged: null,
+  };
+  project.refinements.push(entry);
+  project.lastActiveAt = now;
+  return entry;
+}
+
+/**
+ * Export all refinements for a project as a Markdown string.
+ */
+function refinementsToMarkdown(project) {
+  const name = project.name || 'Untitled Idea';
+  const lines = [
+    `# Refinement History: ${name}`,
+    '',
+    `**Project ID:** ${project.projectId}`,
+    `**Current Phase:** ${project.phase || 1}`,
+    `**Track / Rigor:** ${project.track || '—'} / ${project.rigor || '—'}`,
+    `**Snapshot:** ${project.snapshot || '—'}`,
+    '',
+    '---',
+    '',
+  ];
+
+  const refinements = Array.isArray(project.refinements) ? project.refinements : [];
+  if (refinements.length === 0) {
+    lines.push('*No refinements recorded yet.*');
+  } else {
+    lines.push(`## Entries (${refinements.length} total)`);
+    lines.push('');
+    for (const r of refinements) {
+      const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '—';
+      lines.push(`### ${date}`);
+      lines.push('');
+      lines.push(`- **Source:** ${r.source || '—'}`);
+      lines.push(`- **Phase at time:** ${r.phase ?? '—'}`);
+      lines.push(`- **Version:** ${r.version ?? '—'}`);
+      if (r.fieldsChanged) {
+        lines.push(`- **Fields changed:** ${r.fieldsChanged}`);
+      }
+      lines.push('');
+      if (r.summary) {
+        lines.push(r.summary);
+        lines.push('');
+      }
+      lines.push('---');
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}
+
 module.exports = {
   load,
   save,
   applyPatch,
   create,
   list,
+  addRefinement,
+  refinementsToMarkdown,
   DEFAULT_PROJECT,
   DATA_DIR,
 };

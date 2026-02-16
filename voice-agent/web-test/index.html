@@ -77,6 +77,44 @@
     .framework-actions button:hover { background: #475569; }
     .framework-actions button.primary { background: #6366f1; color: white; }
     .framework-actions button.primary:hover { background: #4f46e5; }
+    .refinement-list { list-style: none; padding: 0; margin: 0; }
+    .refinement-item { padding: 0.5rem 0; border-bottom: 1px solid #1e293b; }
+    .refinement-item:last-child { border-bottom: none; }
+    .refinement-meta { font-size: 0.7rem; color: #64748b; margin-bottom: 0.15rem; }
+    .refinement-meta .source-badge { display: inline-block; padding: 0.05rem 0.35rem; border-radius: 3px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; margin-left: 0.35rem; }
+    .refinement-meta .source-voice { background: #1e3a5f; color: #7dd3fc; }
+    .refinement-meta .source-worker { background: #3b1f5e; color: #c4b5fd; }
+    .refinement-meta .source-manual { background: #1c3829; color: #86efac; }
+    .refinement-summary { font-size: 0.8rem; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; }
+    .refinement-fields { font-size: 0.7rem; color: #475569; margin-top: 0.15rem; font-style: italic; }
+    .refinement-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .refinement-actions button { padding: 0.3rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; }
+    .refinement-actions button:hover { background: #475569; }
+    .refinement-actions button.dl-btn { background: #065f46; color: #a7f3d0; }
+    .refinement-actions button.dl-btn:hover { background: #047857; }
+    .refinement-count { font-size: 0.75rem; color: #64748b; margin-left: 0.35rem; font-weight: normal; }
+    .add-refinement-wrap { margin-top: 0.5rem; }
+    .add-refinement-wrap textarea { width: 100%; min-height: 50px; padding: 0.4rem; font-size: 0.8rem; font-family: inherit; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; resize: vertical; box-sizing: border-box; }
+    .agent-tracker { margin-top: 0.75rem; }
+    .agent-tracker-title { font-size: 0.85rem; color: #e2e8f0; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+    .agent-tracker-title .active-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #facc15; animation: agent-pulse 1.2s ease-in-out infinite; }
+    @keyframes agent-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes agent-spin { to { transform: rotate(360deg); } }
+    .agent-card { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 0.5rem 0.65rem; margin-bottom: 0.4rem; }
+    .agent-card-header { display: flex; align-items: center; gap: 0.5rem; }
+    .agent-card-name { font-size: 0.8rem; color: #e2e8f0; font-weight: 600; flex: 1; }
+    .agent-status-badge { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 4px; text-transform: uppercase; white-space: nowrap; }
+    .agent-status-badge.pending { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
+    .agent-status-badge.running { background: #422006; color: #fbbf24; border: 1px solid #92400e; }
+    .agent-status-badge.running .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid #fbbf2466; border-top-color: #fbbf24; border-radius: 50%; animation: agent-spin 0.8s linear infinite; }
+    .agent-status-badge.completed { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    .agent-status-badge.failed { background: #450a0a; color: #f87171; border: 1px solid #991b1b; }
+    .agent-card-time { font-size: 0.65rem; color: #64748b; margin-top: 0.2rem; }
+    .agent-card-toggle { font-size: 0.7rem; color: #818cf8; cursor: pointer; background: none; border: none; padding: 0.15rem 0; margin-top: 0.25rem; text-decoration: underline; text-decoration-style: dotted; }
+    .agent-card-toggle:hover { color: #a5b4fc; }
+    .agent-card-body { margin-top: 0.35rem; padding: 0.4rem; background: #0f172a; border-radius: 4px; font-size: 0.75rem; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; display: none; }
+    .agent-card-body.open { display: block; }
+    .agent-card-summary { font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem; }
   </style>
 </head>
 <body>
@@ -106,7 +144,10 @@
     <select id="projectsSelect" style="width: 100%; max-width: 360px; padding: 0.5rem; font-size: 0.875rem; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px;">
       <option value="">— Select project —</option>
     </select>
-    <button type="button" id="btnRefreshProjects" style="margin-top: 0.5rem; padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Refresh list</button>
+    <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button type="button" id="btnRefreshProjects" style="padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Refresh list</button>
+      <button type="button" id="btnNewProject" style="padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #065f46; color: #a7f3d0; border: none; border-radius: 6px; cursor: pointer;">+ New project</button>
+    </div>
   </div>
   <div class="transcript" id="transcript"></div>
   <div id="screenLayer" class="screen-layer" style="display: none; margin-bottom: 1rem; background: #0f172a; border-radius: 8px; padding: 1rem; font-size: 0.875rem;">
@@ -120,7 +161,24 @@
     <details class="screen-detail"><summary>Validation Plan</summary><div id="screenValidationPlan" class="screen-content">—</div></details>
     <details class="screen-detail"><summary>Build Plan</summary><div id="screenBuildPlan" class="screen-content">—</div></details>
     <details class="screen-detail"><summary>Open Questions &amp; Next Actions</summary><div id="screenQuestionsActions" class="screen-content">—</div></details>
-    <details class="screen-detail"><summary>Agent results</summary><div id="screenAgentResults" class="screen-content">—</div></details>
+    <div id="agentTracker" class="agent-tracker" style="display: none;">
+      <div class="agent-tracker-title"><span id="agentTrackerDot" class="active-dot" style="display: none;"></span> Agent Activity <span id="agentTrackerCount" style="font-size: 0.7rem; color: #64748b; font-weight: normal;"></span></div>
+      <div id="agentCardList"></div>
+    </div>
+    <details class="screen-detail" id="refinementSection" open>
+      <summary>Refinement History <span id="refinementCount" class="refinement-count"></span></summary>
+      <div class="refinement-actions">
+        <button type="button" id="btnDownloadRefinements" class="dl-btn">Download as .md</button>
+        <button type="button" id="btnRefreshRefinements">Refresh</button>
+      </div>
+      <ul id="refinementList" class="refinement-list screen-content">
+        <li style="color: #64748b; font-size: 0.8rem;">No refinements yet.</li>
+      </ul>
+      <div class="add-refinement-wrap">
+        <textarea id="manualRefinementText" placeholder="Add a manual note to the refinement history…"></textarea>
+        <button type="button" id="btnAddRefinement" style="margin-top: 0.25rem; padding: 0.3rem 0.6rem; font-size: 0.75rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Add note</button>
+      </div>
+    </details>
     <div id="workerButtons" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
       <button type="button" class="worker-btn" data-job="prdLite" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run PRD-lite</button>
       <button type="button" class="worker-btn" data-job="competitorScan" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: #334155; color: #e2e8f0; border: none; border-radius: 6px; cursor: pointer;">Run competitor scan</button>
@@ -171,7 +229,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let currentProjectId = null;
     let currentBackendUrl = null;
 
-    const REGISTRY_PATCH_KEYS = ['projectId', 'switchToProjectName', 'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions', 'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals', 'validationPlan', 'buildPlan', 'moduleState'];
+    const REGISTRY_PATCH_KEYS = ['projectId', 'switchToProjectName', 'createNewProject', 'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions', 'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals', 'validationPlan', 'buildPlan', 'moduleState'];
     function extractJsonPatch(text) {
       if (!text || typeof text !== 'string') return null;
       const m = text.match(/---JSON---\s*([\s\S]*?)---JSON---/);
@@ -216,9 +274,166 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const base = backendUrl.replace(/\/$/, '');
       try {
         const r = await fetch(base + '/agents/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, agentId: d.agentId, taskDescription: d.taskDescription }) });
-        if (r.ok) log.agent('Task dispatched', d.agentId, d.taskDescription?.slice(0, 40));
-        else log.agent('Task dispatch failed', r.status);
+        if (r.ok) {
+          const taskData = await r.json();
+          registerAgentTask(taskData.taskId, taskData.agentId, taskData.agentName || d.agentId);
+          log.agent('Task dispatched', d.agentId, d.taskDescription?.slice(0, 40));
+        } else { log.agent('Task dispatch failed', r.status); }
       } catch (e) { log.agent('Task dispatch error', e); }
+    }
+
+    function extractScreenText(text) {
+      if (!text || typeof text !== 'string') return '';
+      const m = text.match(/---SCREEN---\s*([\s\S]*?)---SCREEN---/);
+      if (m) return m[1].trim().slice(0, 300);
+      const speakM = text.match(/---SPEAK---\s*([\s\S]*?)---SPEAK---/);
+      if (speakM) return speakM[1].trim().slice(0, 300);
+      const clean = text.replace(/---JSON---[\s\S]*?---JSON---/g, '').replace(/---AGENT---[\s\S]*?---AGENT---/g, '').trim();
+      return clean.slice(0, 300);
+    }
+
+    const NEW_PROJECT_INPUT_PHRASES = [
+      /\bnew\s+(project|idea|phone|product|process|program|object)\b/i,
+      /\bstart\s+(a\s+)?(new|fresh)\s+(project|idea|phone|product|one)\b/i,
+      /\bstart\s+(a\s+)?fresh\b/i,
+      /\bstart\s+something\s+new\b/i,
+      /\bcreate\s+(a\s+)?new\b/i,
+      /\bfresh\s+(project|idea)\b/i,
+      /\bswitch\s+to\s+(a\s+)?new\b/i,
+      /\bdifferent\s+(project|idea)\b/i,
+    ];
+    const NEW_PROJECT_MODEL_PHRASES = [
+      /\bstarting\s+(a\s+)?new\s+project\b/i,
+      /\bcreating\s+(a\s+)?new\s+project\b/i,
+      /\bnew\s+project[\.\!,]\s*(what|tell|describe|share)/i,
+      /\blet'?s\s+start\s+fresh\b/i,
+      /\bbrand\s*new\s+project\b/i,
+      /\bblank\s+project\b/i,
+    ];
+    let _newProjectDebounce = 0;
+    function detectNewProjectVoiceCommand(inputText) {
+      if (!inputText || !currentBackendUrl) return;
+      const matched = NEW_PROJECT_INPUT_PHRASES.some(re => re.test(inputText));
+      if (!matched) return;
+      const now = Date.now();
+      if (now - _newProjectDebounce < 15000) return;
+      _newProjectDebounce = now;
+      log('Voice command detected (user input): new project request');
+      createNewProjectFromVoice();
+    }
+    function detectNewProjectFromModelOutput(outputText) {
+      if (!outputText || !currentBackendUrl) return;
+      const matched = NEW_PROJECT_MODEL_PHRASES.some(re => re.test(outputText));
+      if (!matched) return;
+      const now = Date.now();
+      if (now - _newProjectDebounce < 15000) return;
+      _newProjectDebounce = now;
+      log('Voice command detected (model output): new project request');
+      createNewProjectFromVoice();
+    }
+    async function createNewProjectFromVoice() {
+      if (!currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      try {
+        const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!createRes.ok) { log('Voice new project failed', createRes.status); return; }
+        const proj = await createRes.json();
+        currentProjectId = proj.projectId;
+        localStorage.setItem('idearefinement_lastProjectId', proj.projectId);
+        updateScreenLayer(proj);
+        document.getElementById('screenLayer').style.display = 'block';
+        loadAgentTrackerForProject(proj.projectId);
+        await refreshProjectsList();
+        syncProjectsSelectToCurrent();
+        log('Voice: created new project', proj.projectId);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[System: User requested a new project via voice. New projectId is ' + proj.projectId + '. Acknowledge and ask for their new idea.]' }] }], turnComplete: true } }));
+        }
+      } catch (e) { log('Voice new project error', e); }
+    }
+
+    const NAME_PATTERNS = [
+      /(?:named?|call(?:ed|ing)?|naming)\s+(?:it|this|the\s+project|this\s+project)\s+["']?([A-Z][A-Za-z0-9 ]{1,30}?)["']?\s*[\.\,\!\?]/i,
+      /(?:project|idea)\s+(?:name\s+is|is\s+called|called)\s+["']?([A-Z][A-Za-z0-9 ]{1,30}?)["']?\s*[\.\,\!\?]/i,
+      /let'?s\s+call\s+(?:it|this)\s+["']?([A-Z][A-Za-z0-9 ]{1,30}?)["']?\s*[\.\,\!\?]/i,
+      /["']([A-Z][A-Za-z0-9 ]{1,30}?)["']\s+(?:and\s+saved|is\s+saved|has\s+been\s+saved)/i,
+      /(?:named?|call(?:ed|ing)?)\s+(?:it|this|the\s+project)\s+["']?([A-Z][A-Za-z0-9 ]{1,30}?)["']?\s+and\b/i,
+    ];
+    const LAUNCH_AGENT_RE = /launching\s+agent\s*[:\-–]\s*(\w+)/gi;
+    const AGENT_SPEECH_MAP = [
+      { patterns: [/open[\s-]*source/i, /oss\s+scout/i, /github\s+search/i, /repos?\s+search/i], agentId: 'ossScout', description: 'Discover relevant open source projects' },
+      { patterns: [/market\s+research/i, /competitor\s+(scan|analysis|search)/i, /market\s+(scan|analysis|trends)/i, /competitive\s+landscape/i], agentId: 'marketResearch', description: 'Find market trends and competitor landscape' },
+      { patterns: [/\bPRD\b/i, /product\s+requirements/i, /requirements\s+summary/i, /prd\s+summary/i], agentId: 'prdSummary', description: 'Generate product requirements summary' },
+      { patterns: [/risk\s+register/i, /risk\s+analysis/i, /risks?\s+and\s+mitigations?/i], agentId: 'riskRegister', description: 'Suggest risks and mitigations' },
+    ];
+    const VALID_AGENT_IDS = new Set(['ossScout', 'marketResearch', 'prdSummary', 'riskRegister']);
+    let _lastExtractedName = '';
+
+    async function tryExtractFromSpeech(fullText, projectId, backendUrl) {
+      if (!fullText || !projectId || !backendUrl) return;
+      const base = backendUrl.replace(/\/$/, '');
+      const patch = {};
+
+      for (const re of NAME_PATTERNS) {
+        const m = fullText.match(re);
+        if (m && m[1]) {
+          const name = m[1].trim();
+          if (name.length >= 2 && name !== _lastExtractedName) {
+            patch.name = name;
+            _lastExtractedName = name;
+            log('Speech extraction: project name =', name);
+          }
+          break;
+        }
+      }
+
+      if (Object.keys(patch).length > 0) {
+        try {
+          patch._refinementNote = 'Auto-extracted from voice conversation';
+          patch._refinementSource = 'voice';
+          const res = await fetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+          if (res.ok) {
+            const project = await res.json();
+            updateScreenLayer(project);
+            await refreshProjectsList();
+            syncProjectsSelectToCurrent();
+            log('Speech extraction: patched project', projectId);
+          }
+        } catch (e) { log('Speech extraction patch error', e); }
+      }
+
+      const agentsToDispatch = new Set();
+      let m;
+      const launchRe = new RegExp(LAUNCH_AGENT_RE.source, LAUNCH_AGENT_RE.flags);
+      while ((m = launchRe.exec(fullText)) !== null) {
+        const spoken = m[1].trim();
+        const matched = [...VALID_AGENT_IDS].find(id => id.toLowerCase() === spoken.toLowerCase());
+        if (matched) {
+          agentsToDispatch.add(matched);
+          log('Speech extraction: trigger phrase "Launching agent: ' + matched + '"');
+        }
+      }
+      for (const agent of AGENT_SPEECH_MAP) {
+        const mentioned = agent.patterns.some(re => re.test(fullText));
+        if (mentioned) agentsToDispatch.add(agent.agentId);
+      }
+      for (const agentId of agentsToDispatch) {
+        const sig = agentId + ':' + projectId;
+        if (dispatchedAgentSignatures.has(sig)) continue;
+        dispatchedAgentSignatures.add(sig);
+        const agentInfo = AGENT_SPEECH_MAP.find(a => a.agentId === agentId);
+        const desc = agentInfo?.description || 'Agent task';
+        const displayName = agentInfo?.agentId || agentId;
+        log('Speech extraction: dispatching agent', agentId);
+        try {
+          const r = await fetch(base + '/agents/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, agentId, taskDescription: desc }) });
+          if (r.ok) {
+            const taskData = await r.json();
+            registerAgentTask(taskData.taskId, taskData.agentId, taskData.agentName || displayName);
+            log.agent('Speech: dispatched', agentId);
+          } else { log.agent('Speech: dispatch failed', r.status); }
+        } catch (e) { log.agent('Speech: dispatch error', e); }
+      }
     }
 
     async function tryApplyRegistryPatch(text, projectId, backendUrl) {
@@ -226,6 +441,24 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (!patch || !backendUrl) return;
       const base = backendUrl.replace(/\/$/, '');
       try {
+        if (patch.createNewProject) {
+          const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          if (createRes.ok) {
+            const proj = await createRes.json();
+            currentProjectId = proj.projectId;
+            localStorage.setItem('idearefinement_lastProjectId', proj.projectId);
+            updateScreenLayer(proj);
+            document.getElementById('screenLayer').style.display = 'block';
+            loadAgentTrackerForProject(proj.projectId);
+            await refreshProjectsList();
+            syncProjectsSelectToCurrent();
+            log('Voice: created new project', proj.projectId);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[System: New project created. ProjectId is ' + proj.projectId + '. Ask the user for their new idea.]' }] }], turnComplete: true } }));
+            }
+          } else { log('Voice: new project creation failed', createRes.status); }
+          return;
+        }
         if (patch.switchToProjectName) {
           const r = await fetch(base + '/projects');
           const list = r.ok ? await r.json() : [];
@@ -241,7 +474,11 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         if (!projectId) return;
         const patchForBackend = { ...patch };
         delete patchForBackend.switchToProjectName;
+        delete patchForBackend.createNewProject;
         if (Object.keys(patchForBackend).length === 0) return;
+        const screenNote = extractScreenText(text);
+        if (screenNote) patchForBackend._refinementNote = screenNote;
+        patchForBackend._refinementSource = 'voice';
         const res = await fetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patchForBackend) });
         if (!res.ok) { log('Registry PATCH failed', res.status); return; }
         const project = await res.json();
@@ -257,6 +494,74 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (select && currentProjectId) {
         select.value = currentProjectId;
       }
+    }
+
+    function renderRefinements(refinements) {
+      const listEl = document.getElementById('refinementList');
+      const countEl = document.getElementById('refinementCount');
+      if (!listEl) return;
+      const items = Array.isArray(refinements) ? refinements : [];
+      if (countEl) countEl.textContent = items.length ? `(${items.length})` : '';
+      if (items.length === 0) {
+        listEl.innerHTML = '<li style="color: #64748b; font-size: 0.8rem;">No refinements yet.</li>';
+        return;
+      }
+      const reversed = [...items].reverse();
+      listEl.innerHTML = reversed.map(r => {
+        const date = r.timestamp ? new Date(r.timestamp).toLocaleString() : '—';
+        const src = r.source || 'voice';
+        const badgeClass = src === 'worker' ? 'source-worker' : src === 'manual' ? 'source-manual' : 'source-voice';
+        const fields = r.fieldsChanged && r.fieldsChanged !== r.summary
+          ? `<div class="refinement-fields">${escHtml(r.fieldsChanged)}</div>` : '';
+        return `<li class="refinement-item">
+          <div class="refinement-meta">${escHtml(date)} · v${r.version ?? '?'} · Phase ${r.phase ?? '?'}<span class="source-badge ${badgeClass}">${escHtml(src)}</span></div>
+          <div class="refinement-summary">${escHtml(r.summary || '(no summary)')}</div>
+          ${fields}
+        </li>`;
+      }).join('');
+    }
+
+    function escHtml(s) {
+      return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    async function downloadRefinementsMd() {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      try {
+        const r = await fetch(base + '/projects/' + encodeURIComponent(currentProjectId) + '/refinements/download');
+        if (!r.ok) { log('Download refinements failed', r.status); return; }
+        const blob = await r.blob();
+        const disposition = r.headers.get('Content-Disposition') || '';
+        const fileMatch = disposition.match(/filename="?([^"]+)"?/);
+        const filename = fileMatch ? fileMatch[1] : 'refinements.md';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) { log('Download refinements error', e); }
+    }
+
+    async function addManualRefinement() {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const ta = document.getElementById('manualRefinementText');
+      if (!ta) return;
+      const summary = ta.value.trim();
+      if (!summary) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      try {
+        const r = await fetch(base + '/projects/' + encodeURIComponent(currentProjectId) + '/refinements', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ summary, source: 'manual' })
+        });
+        if (r.ok) {
+          ta.value = '';
+          const proj = await fetchProject(base, currentProjectId);
+          if (proj) updateScreenLayer(proj);
+        } else { log('Add refinement failed', r.status); }
+      } catch (e) { log('Add refinement error', e); }
     }
 
     function updateScreenLayer(project) {
@@ -283,8 +588,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const q = (project.openQuestions || []);
       const a = (project.nextActions || []);
       set('screenQuestionsActions', (q.length ? 'Open questions:\n' + q.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') + '\n\n' : '') + (a.length ? 'Next actions:\n' + a.map(x => typeof x === 'string' ? x : (x.text || JSON.stringify(x))).join('\n') : '') || '—');
-      const agentRes = (project.agentResults || []);
-      set('screenAgentResults', agentRes.length ? agentRes.slice(-5).map(ar => (ar.agentName || ar.agentId) + ' (' + (ar.at || '').slice(0, 19) + '): ' + (typeof ar.result === 'object' && ar.result && (ar.result.note || ar.result.prdLite) ? (ar.result.note || String(ar.result.prdLite).slice(0, 200)) : JSON.stringify(ar.result).slice(0, 150))).join('\n\n') : '—');
+      renderRefinements(project.refinements);
       const reg = document.getElementById('screenRegistry');
       if (reg) reg.textContent = JSON.stringify(project, null, 2);
     }
@@ -365,6 +669,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       localStorage.setItem('idearefinement_lastProjectId', projectId);
       updateScreenLayer(proj);
       document.getElementById('screenLayer').style.display = 'block';
+      loadAgentTrackerForProject(projectId);
       setStatus('Switched to project. Click Start to resume.');
       log('Loaded project', projectId);
     }
@@ -596,10 +901,12 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let recentModelTranscript = '';
     /** Next scheduled start time for model audio (AudioContext time) so chunks play in order without overlapping */
     let nextPlaybackTime = 0;
-    /** Agent results: taskIds we have already sent to the conductor via clientContent */
+    /** Agent tracker: maps taskId -> { taskId, agentId, agentName, status, createdAt, completedAt, result, summary } */
+    const trackedAgentTasks = new Map();
     const deliveredTaskIds = new Set();
     let agentResultsPollInterval = null;
     const AGENT_RESULTS_POLL_MS = 5000;
+
     function formatAgentResultSummary(result) {
       if (result == null) return '(no result)';
       if (typeof result === 'string') return result.slice(0, 600);
@@ -611,6 +918,111 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       }
       return String(result).slice(0, 600);
     }
+
+    function formatAgentResultFull(result) {
+      if (result == null) return '(no result)';
+      if (typeof result === 'string') return result;
+      if (typeof result === 'object') return JSON.stringify(result, null, 2);
+      return String(result);
+    }
+
+    function registerAgentTask(taskId, agentId, agentName) {
+      if (trackedAgentTasks.has(taskId)) return;
+      trackedAgentTasks.set(taskId, {
+        taskId,
+        agentId: agentId || 'unknown',
+        agentName: agentName || agentId || 'Agent',
+        status: 'running',
+        createdAt: new Date().toISOString(),
+        completedAt: null,
+        result: null,
+        summary: null,
+      });
+      renderAgentTracker();
+      log.agent('Tracking agent task', agentName || agentId, taskId);
+    }
+
+    function renderAgentTracker() {
+      const tracker = document.getElementById('agentTracker');
+      const cardList = document.getElementById('agentCardList');
+      const dot = document.getElementById('agentTrackerDot');
+      const countEl = document.getElementById('agentTrackerCount');
+      if (!tracker || !cardList) return;
+      const tasks = [...trackedAgentTasks.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (tasks.length === 0) { tracker.style.display = 'none'; return; }
+      tracker.style.display = 'block';
+      const running = tasks.filter(t => t.status === 'running' || t.status === 'pending');
+      const done = tasks.filter(t => t.status === 'completed');
+      const failed = tasks.filter(t => t.status === 'failed');
+      if (dot) dot.style.display = running.length > 0 ? 'inline-block' : 'none';
+      if (countEl) {
+        const parts = [];
+        if (running.length) parts.push(running.length + ' active');
+        if (done.length) parts.push(done.length + ' done');
+        if (failed.length) parts.push(failed.length + ' failed');
+        countEl.textContent = parts.length ? '(' + parts.join(', ') + ')' : '';
+      }
+      cardList.innerHTML = tasks.map(t => {
+        const statusClass = (t.status === 'running' || t.status === 'pending') ? 'running' : t.status;
+        const statusLabel = t.status === 'running' ? '<span class="spinner"></span> Running' : t.status === 'pending' ? 'Queued' : t.status === 'completed' ? 'Done' : 'Failed';
+        const elapsed = t.completedAt && t.createdAt ? Math.round((new Date(t.completedAt) - new Date(t.createdAt)) / 1000) : null;
+        const timeStr = t.status === 'completed' && elapsed != null ? 'Completed in ' + elapsed + 's' : t.status === 'failed' ? 'Failed' : 'Started ' + new Date(t.createdAt).toLocaleTimeString();
+        const summaryHtml = t.summary ? '<div class="agent-card-summary">' + escHtml(t.summary).slice(0, 300) + '</div>' : '';
+        const hasResult = t.result != null;
+        const toggleBtn = hasResult ? '<button type="button" class="agent-card-toggle" data-toggle-response>Show full response</button><div class="agent-card-body">' + escHtml(formatAgentResultFull(t.result)) + '</div>' : '';
+        return '<div class="agent-card" data-task-id="' + t.taskId + '">'
+          + '<div class="agent-card-header"><span class="agent-card-name">' + escHtml(t.agentName) + '</span><span class="agent-status-badge ' + statusClass + '">' + statusLabel + '</span></div>'
+          + '<div class="agent-card-time">' + escHtml(timeStr) + '</div>'
+          + summaryHtml
+          + toggleBtn
+          + '</div>';
+      }).join('');
+      cardList.querySelectorAll('[data-toggle-response]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const body = btn.nextElementSibling;
+          if (!body) return;
+          body.classList.toggle('open');
+          btn.textContent = body.classList.contains('open') ? 'Hide full response' : 'Show full response';
+        });
+      });
+    }
+
+    async function pollAgentStatus() {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      try {
+        const r = await fetch(base + '/agents/tasks/list?projectId=' + encodeURIComponent(currentProjectId));
+        if (!r.ok) return;
+        const tasks = await r.json();
+        let changed = false;
+        for (const task of tasks) {
+          const existing = trackedAgentTasks.get(task.taskId);
+          if (existing) {
+            if (existing.status !== task.status) {
+              existing.status = task.status;
+              existing.completedAt = task.completedAt || null;
+              existing.result = task.result || null;
+              existing.summary = task.result ? formatAgentResultSummary(task.result) : null;
+              changed = true;
+            }
+          } else if (task.status === 'running' || task.status === 'pending') {
+            trackedAgentTasks.set(task.taskId, {
+              taskId: task.taskId,
+              agentId: task.agentId,
+              agentName: task.agentName || task.agentId,
+              status: task.status,
+              createdAt: task.createdAt,
+              completedAt: null,
+              result: null,
+              summary: null,
+            });
+            changed = true;
+          }
+        }
+        if (changed) renderAgentTracker();
+      } catch (e) { log.agent('pollAgentStatus error', e); }
+    }
+
     async function pollAgentResults() {
       if (!currentProjectId || !currentBackendUrl || !ws || ws.readyState !== WebSocket.OPEN) return;
       const base = currentBackendUrl.replace(/\/$/, '');
@@ -621,12 +1033,46 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         for (const task of tasks) {
           if (task.status !== 'completed' || deliveredTaskIds.has(task.taskId)) continue;
           deliveredTaskIds.add(task.taskId);
+          const tracked = trackedAgentTasks.get(task.taskId);
+          if (tracked) {
+            tracked.status = 'completed';
+            tracked.completedAt = task.completedAt;
+            tracked.result = task.result;
+            tracked.summary = formatAgentResultSummary(task.result);
+          }
+          renderAgentTracker();
           const summary = formatAgentResultSummary(task.result);
-          const msg = '[System: Agent "' + (task.agentName || task.agentId) + '" has returned: ' + summary + ']';
+          const msg = '[System: Agent "' + (task.agentName || task.agentId) + '" has returned results. Here is a brief summary of the findings:\n' + summary + '\nPlease share a brief overview of these findings with the user and explain how they relate to the current idea refinement.]';
           ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: msg }] }], turnComplete: true } }));
           log.agent('Injected agent result to conductor', task.agentName || task.agentId);
         }
       } catch (e) { log.agent('pollAgentResults error', e); }
+      await pollAgentStatus();
+    }
+
+    function loadAgentTrackerForProject(projectId) {
+      trackedAgentTasks.clear();
+      if (!projectId || !currentBackendUrl) { renderAgentTracker(); return; }
+      const base = currentBackendUrl.replace(/\/$/, '');
+      fetch(base + '/agents/tasks/list?projectId=' + encodeURIComponent(projectId))
+        .then(r => r.ok ? r.json() : [])
+        .then(tasks => {
+          for (const t of tasks) {
+            trackedAgentTasks.set(t.taskId, {
+              taskId: t.taskId,
+              agentId: t.agentId,
+              agentName: t.agentName || t.agentId,
+              status: t.status,
+              createdAt: t.createdAt,
+              completedAt: t.completedAt || null,
+              result: t.result || null,
+              summary: t.result ? formatAgentResultSummary(t.result) : null,
+            });
+            if (t.status === 'completed') deliveredTaskIds.add(t.taskId);
+          }
+          renderAgentTracker();
+        })
+        .catch(() => renderAgentTracker());
     }
 
     function normalizeForEchoMatch(s) {
@@ -809,6 +1255,10 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           if (outputT?.text) {
             lastModelOutputTime = Date.now();
             log('outputTranscription:', outputT.text?.slice(0, 80));
+            detectNewProjectFromModelOutput(outputT.text);
+            if (currentProjectId && currentBackendUrl && LAUNCH_AGENT_RE.test(outputT.text)) {
+              tryExtractFromSpeech(outputT.text, currentProjectId, currentBackendUrl);
+            }
             modelTranscriptBuffer += outputT.text;
             if (currentProjectId && currentBackendUrl) {
               tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
@@ -838,6 +1288,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
                 log.echo('inputTranscription ALLOWED despite time-window (high rms=' + currentRms.toFixed(4) + ')', inputT.text?.slice(0, 80));
               }
               log.mic('inputTranscription:', inputT.text?.slice(0, 80));
+              detectNewProjectVoiceCommand(inputT.text);
               userTranscriptBuffer += inputT.text;
               if (userFlushTimer) clearTimeout(userFlushTimer);
               userFlushTimer = setTimeout(flushUserTranscript, TRANSCRIPT_FLUSH_MS);
@@ -881,6 +1332,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             if (modelTranscriptBuffer && currentProjectId && currentBackendUrl) {
               tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
               tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+              tryExtractFromSpeech(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
             }
           }
           if (c && !inputT?.text && !outputT?.text && (!parts || !parts.length)) {
@@ -1120,6 +1572,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             currentBackendUrl = base;
             updateScreenLayer(resumableProject);
             document.getElementById('screenLayer').style.display = 'block';
+            loadAgentTrackerForProject(projectId);
             await showProjectsSection();
             log('Resuming project', projectId);
           } else {
@@ -1134,6 +1587,9 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
               projectId = proj.projectId;
               currentProjectId = projectId;
               currentBackendUrl = base;
+              updateScreenLayer(proj);
+              document.getElementById('screenLayer').style.display = 'block';
+              loadAgentTrackerForProject(proj.projectId);
               await showProjectsSection();
               log('Created project', projectId);
             }
@@ -1180,7 +1636,11 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
               }
             }
           }
-        } catch (e) { log('Backend setup failed', e); }
+        } catch (e) {
+          log('Backend setup failed', e);
+          configWarning.hidden = false;
+          configWarning.textContent = 'Could not reach backend at ' + backendUrl + '. Start the backend (cd backend && npm start) or check BACKEND_URL in config.js.';
+        }
       }
       const systemInstruction = conductorPrompt || undefined;
       setStatus('Connecting…');
@@ -1214,6 +1674,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         await startMic(ws);
         if (currentProjectId && currentBackendUrl) {
           deliveredTaskIds.clear();
+          loadAgentTrackerForProject(currentProjectId);
           agentResultsPollInterval = setInterval(pollAgentResults, AGENT_RESULTS_POLL_MS);
         }
         setStatus('In conversation – speak then click "Done speaking" or wait 1s silence', 'active');
@@ -1318,8 +1779,39 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     });
 
     document.getElementById('btnRefreshProjects')?.addEventListener('click', () => refreshProjectsList());
+    document.getElementById('btnNewProject')?.addEventListener('click', async () => {
+      if (!currentBackendUrl) return;
+      const base = currentBackendUrl.replace(/\/$/, '');
+      const btn = document.getElementById('btnNewProject');
+      if (btn) btn.disabled = true;
+      try {
+        const createRes = await fetch(base + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!createRes.ok) { log('New project creation failed', createRes.status); return; }
+        const proj = await createRes.json();
+        currentProjectId = proj.projectId;
+        localStorage.setItem('idearefinement_lastProjectId', proj.projectId);
+        updateScreenLayer(proj);
+        document.getElementById('screenLayer').style.display = 'block';
+        loadAgentTrackerForProject(proj.projectId);
+        await refreshProjectsList();
+        syncProjectsSelectToCurrent();
+        log('Created new project', proj.projectId);
+        setStatus('New project created. Click Start to begin refining.');
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[System: User switched to a brand new project. ProjectId is ' + proj.projectId + '. Say a brief hello and ask for their new idea.]' }] }], turnComplete: true } }));
+        }
+      } catch (e) { log('New project creation error', e); }
+      if (btn) btn.disabled = false;
+    });
     document.getElementById('btnFrameworkLoad')?.addEventListener('click', () => loadFramework());
     document.getElementById('btnFrameworkSave')?.addEventListener('click', () => saveFramework());
+    document.getElementById('btnDownloadRefinements')?.addEventListener('click', () => downloadRefinementsMd());
+    document.getElementById('btnAddRefinement')?.addEventListener('click', () => addManualRefinement());
+    document.getElementById('btnRefreshRefinements')?.addEventListener('click', async () => {
+      if (!currentProjectId || !currentBackendUrl) return;
+      const proj = await fetchProject(currentBackendUrl.replace(/\/$/, ''), currentProjectId);
+      if (proj) renderRefinements(proj.refinements);
+    });
     document.getElementById('projectsSelect')?.addEventListener('change', (e) => {
       const id = e.target?.value;
       if (id) loadProjectIntoUI(id);
