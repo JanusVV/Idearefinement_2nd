@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%236366f1' rx='6'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='white'>V</text></svg>" />
-  <title>Voice Agent – Web test (Gemini Live API, no Firebase)</title>
+  <title>Voice Agent</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -118,20 +118,144 @@
     .agent-card-body { margin-top: 0.35rem; padding: 0.4rem; background: #0f172a; border-radius: 4px; font-size: 0.75rem; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; display: none; }
     .agent-card-body.open { display: block; }
     .agent-card-summary { font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem; }
+
+    /* ====== Mobile Tab Layout ====== */
+    .tab-bar {
+      display: flex;
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 3px;
+      margin-bottom: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .tab-bar button {
+      flex: 1;
+      padding: 0.65rem 0.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: transparent;
+      color: #64748b;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      max-width: none;
+      width: auto;
+      margin: 0;
+      min-height: 40px;
+    }
+    .tab-bar button.active {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+    .tab-bar .tab-badge {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* View switching via data-view on body */
+    body[data-view="chat"] .view-project,
+    body[data-view="chat"] .view-tools { display: none !important; }
+    body[data-view="project"] .view-chat,
+    body[data-view="project"] .view-tools { display: none !important; }
+    body[data-view="tools"] .view-chat,
+    body[data-view="tools"] .view-project { display: none !important; }
+
+    /* Fixed bottom action bar */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(26, 26, 46, 0.96);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid #334155;
+      padding: 0.6rem 1rem;
+      padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+    }
+    .bottom-bar button {
+      width: auto;
+      max-width: none;
+      margin: 0;
+      flex: 1;
+      min-height: 48px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 12px;
+      padding: 0.65rem 1rem;
+    }
+    .bottom-bar button.primary { max-width: 240px; }
+    .bottom-bar button.stop { max-width: 240px; }
+    .bottom-bar #btnNewIdea,
+    .bottom-bar #btnDoneSpeaking {
+      background: #334155;
+      color: #e2e8f0;
+      border: none;
+      max-width: 180px;
+    }
+    .bottom-bar #btnNewIdea:hover,
+    .bottom-bar #btnDoneSpeaking:hover { background: #475569; }
+
+    /* Bottom padding so content isn't hidden behind fixed bar */
+    body { padding-bottom: 5.5rem; }
+
+    /* Mobile responsive */
+    @media (max-width: 600px) {
+      body { padding: 0.75rem 0.75rem 5.5rem; }
+      h1 { font-size: 1.1rem; margin-bottom: 0.25rem; }
+      .status { font-size: 0.8rem; margin-bottom: 0.5rem; }
+      .transcript {
+        min-height: 120px;
+        max-height: calc(100vh - 13rem);
+        font-size: 0.85rem;
+        padding: 0.75rem;
+      }
+      .screen-detail summary {
+        padding: 0.5rem 0;
+        font-size: 0.9rem;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+      }
+      .framework-panel textarea { min-height: 200px; }
+      .mic-select-wrap select { max-width: 100%; }
+      .screen-layer { padding: 0.75rem; font-size: 0.85rem; }
+      .agent-card { padding: 0.5rem; }
+      .refinement-actions button,
+      .framework-actions button,
+      .worker-btn { min-height: 40px; }
+    }
   </style>
 </head>
-<body>
-  <h1>Voice Agent – Web test (no Firebase)</h1>
+<body data-view="chat">
+  <h1>Voice Agent</h1>
   <p class="status" id="status">Ready. Set API key in config.js and start.</p>
   <div id="configWarning" class="config-warning" hidden>Create <code>config.js</code> from <code>config.example.js</code> and set <code>GEMINI_API_KEY</code>.</div>
-  <div class="mic-select-wrap">
+  <nav class="tab-bar" id="tabBar">
+    <button type="button" class="tab-btn active" data-tab="chat">Chat</button>
+    <button type="button" class="tab-btn" data-tab="project">Project</button>
+    <button type="button" class="tab-btn" data-tab="tools">Tools</button>
+  </nav>
+  <div class="mic-select-wrap view-tools">
     <label for="micSelect">Microphone</label>
     <select id="micSelect">
       <option value="">Default (browser choice)</option>
     </select>
     <button type="button" id="btnRefreshMic">Refresh list</button>
   </div>
-  <div id="frameworkSection" class="framework-panel" style="display: none;">
+  <div id="frameworkSection" class="framework-panel view-tools" style="display: none;">
     <details>
       <summary>Refinement framework (view / edit)</summary>
       <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.35rem;">Phases, modules, and triggers that guide the conductor. Changes apply to new conversations.</p>
@@ -142,7 +266,7 @@
       </div>
     </details>
   </div>
-  <div id="projectsSection" style="display: none; margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+  <div id="projectsSection" class="view-project" style="display: none; margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;">
     <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">Projects</div>
     <select id="projectsSelect" style="width: 100%; max-width: 360px; padding: 0.5rem; font-size: 0.875rem; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px;">
       <option value="">— Select project —</option>
@@ -152,8 +276,8 @@
       <button type="button" id="btnNewProject" style="padding: 0.35rem 0.6rem; font-size: 0.75rem; background: #065f46; color: #a7f3d0; border: none; border-radius: 6px; cursor: pointer;">+ New project</button>
     </div>
   </div>
-  <div class="transcript" id="transcript"></div>
-  <div id="screenLayer" class="screen-layer" style="display: none; margin-bottom: 1rem; background: #0f172a; border-radius: 8px; padding: 1rem; font-size: 0.875rem;">
+  <div class="transcript view-chat" id="transcript"></div>
+  <div id="screenLayer" class="screen-layer view-project" style="display: none; margin-bottom: 1rem; background: #0f172a; border-radius: 8px; padding: 1rem; font-size: 0.875rem;">
     <div style="font-weight: bold; margin-bottom: 0.25rem;">
       <span id="screenProjectName" class="screen-project-name" style="font-weight: bold; color: #e2e8f0; font-size: 1rem;" title="Click to edit name">—</span>
     </div>
@@ -214,18 +338,20 @@
     </div>
     <details class="screen-detail" style="margin-top: 0.5rem;"><summary>Full registry</summary><pre id="screenRegistry" class="screen-content" style="white-space: pre-wrap; word-break: break-all; font-size: 0.7rem; margin-top: 0.25rem;"></pre></details>
   </div>
-  <div id="micMeter" class="mic-meter" style="display: none;">
+  <div id="micMeter" class="mic-meter view-chat" style="display: none;">
     <div class="label">Mic level</div>
     <div id="micDevice" class="value" style="margin-bottom: 0.25rem; color: #94a3b8;">Microphone: —</div>
     <div class="bar-wrap"><div id="micBar" class="bar" role="meter" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
     <div id="micValue" class="value">—</div>
   </div>
-  <button id="btnStart" class="primary" type="button">Start conversation</button>
-  <button id="btnNewIdea" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border: none; border-radius: 8px; cursor: pointer;">New idea</button>
-  <button id="btnStop" class="stop" type="button" style="display: none;">Stop</button>
-  <button id="btnDoneSpeaking" type="button" style="display: none; margin-top: 0.5rem; padding: 0.5rem 1rem; background: #334155; color: #e2e8f0; border-radius: 8px; cursor: pointer;">Done speaking (send to model)</button>
+  <div class="bottom-bar" id="bottomBar">
+    <button id="btnNewIdea" type="button" style="display: none;">New idea</button>
+    <button id="btnStart" class="primary" type="button">Start</button>
+    <button id="btnStop" class="stop" type="button" style="display: none;">Stop</button>
+    <button id="btnDoneSpeaking" type="button" style="display: none;">Done speaking</button>
+  </div>
   <div id="error" class="error-msg" hidden></div>
-  <div id="debugPanel" style="margin-top:1rem; padding:0.75rem; background:#0f172a; border-radius:8px; font-family:monospace; font-size:0.75rem; color:#94a3b8; max-height:260px; overflow-y:auto;">
+  <div id="debugPanel" class="view-tools" style="margin-top:1rem; padding:0.75rem; background:#0f172a; border-radius:8px; font-family:monospace; font-size:0.75rem; color:#94a3b8; max-height:260px; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.35rem;">
       <strong>Session log</strong>
       <div style="display:flex; gap:0.35rem; flex-wrap:wrap;">
@@ -246,6 +372,20 @@
     <div id="debugLast" style="margin-top:0.5rem; white-space:pre-wrap; word-break:break-all;"></div>
   </div>
 
+  <script>
+    (function() {
+      var tabBar = document.getElementById('tabBar');
+      if (!tabBar) return;
+      tabBar.addEventListener('click', function(e) {
+        var btn = e.target.closest('.tab-btn');
+        if (!btn) return;
+        var view = btn.dataset.tab;
+        document.body.setAttribute('data-view', view);
+        tabBar.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
+    })();
+  </script>
   <script type="module">
     const LIVE_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
     // Use a Live API–supported model. gemini-3.0-flash is not yet available for bidiGenerateContent.
