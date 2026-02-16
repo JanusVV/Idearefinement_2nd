@@ -11,6 +11,29 @@ const llm = require('../llmClient');
 const { createScopedLogger } = require('../logger');
 const log = createScopedLogger('Worker:DocumentPolisher');
 
+/**
+ * Detects raw field values that are conductor dialog rather than
+ * structured data. Returns true if the value should be discarded.
+ */
+function looksLikeConductorDialog(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim();
+  // Ends with a question mark — likely a conductor question
+  if (t.endsWith('?')) return true;
+  // Starts with conversational phrases conductors use
+  const dialogStarts = [
+    /^got it\b/i, /^let'?s\b/i, /^what was\b/i, /^what is\b/i,
+    /^can you\b/i, /^tell me\b/i, /^was your\b/i, /^so you/i,
+    /^a clear problem\b/i, /^that'?s a good/i, /^i notice/i,
+    /^before we move/i, /^now let'?s/i, /^great —/i, /^excellent/i,
+  ];
+  if (dialogStarts.some(re => re.test(t))) return true;
+  // No markdown formatting (bold, bullets, tables) and is short = likely dialog
+  const hasFormatting = /\*\*|^\s*[-•*]\s|^\s*\d+\.\s|\|/m.test(t);
+  if (!hasFormatting && t.length < 200) return true;
+  return false;
+}
+
 const PHASE_FIELDS = {
   foundation: {
     spark: '1.1 The Spark — Use **Origin:** and **Inspiration:** labels.',
@@ -66,13 +89,24 @@ YOUR PRIMARY INPUT is a conversation transcript between a user and an AI conduct
 
 CRITICAL RULES:
 1. Extract information from the CONVERSATION TRANSCRIPT. This is your primary source of truth. The user's actual words contain the real idea, the real problem, and the real answers.
-2. You also receive raw phase field data as secondary context. Some of this may be badly captured fragments — use the transcript to verify and correct.
+2. You also receive raw phase field data as secondary context. WARNING: These fields are often BADLY CAPTURED — they may contain:
+   - Conductor dialog (questions the AI asked, not answers from the user)
+   - Restatements that start with "Got it —" or "So you're saying..."
+   - Content from DIFFERENT projects that leaked in by mistake
+   - Questions ending in "?" that were never answered
+   You MUST filter these out. Only use raw field data if it contains actual structured documentation (bold labels, bullets, tables) that aligns with the project topic.
 3. Agent results (market research, competitor scans, etc.) are provided as additional data to incorporate.
 4. NEVER fabricate information. Only document what was actually discussed or discovered. If a topic wasn't covered in the conversation, leave that field out of your response entirely.
 5. Write in a professional but clear style. Use **bold labels**, markdown tables, bullet lists, and numbered lists.
 6. Be specific — include real numbers, names, features, and details mentioned in the conversation.
 7. Where the conversation discussed something substantively, write a thorough section (multiple paragraphs, tables, lists). Where it was only briefly mentioned, write a concise entry.
 8. Do NOT include the section heading in the field value — the export system adds those.
+9. DISCARD any raw field value that:
+   - Reads like a conversational turn (question, prompt, or restatement)
+   - Starts with "Got it", "Let's", "What was", "Can you", "A clear problem"
+   - Ends with a question mark
+   - Discusses a topic unrelated to the project name/elevator pitch
+   These are conductor dialog fragments, NOT real data.
 
 FIELD GUIDE (expected structure per field):
 ${fieldGuide}
@@ -117,7 +151,7 @@ function buildUserPrompt(project, transcript) {
     if (!data || typeof data !== 'object') continue;
     const filled = {};
     for (const [k, v] of Object.entries(data)) {
-      if (v && typeof v === 'string' && v.trim()) filled[k] = v;
+      if (v && typeof v === 'string' && v.trim() && !looksLikeConductorDialog(v)) filled[k] = v;
     }
     if (Object.keys(filled).length > 0) rawFields[phase] = filled;
   }

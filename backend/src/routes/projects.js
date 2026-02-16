@@ -93,6 +93,13 @@ router.post('/:id/structure', async (req, res) => {
     if (!agent) return res.status(500).json({ error: 'documentPolisher agent not registered' });
 
     const transcript = (req.body && req.body.transcript) || '';
+
+    // Persist transcript on the project so export auto-polish can use it
+    if (transcript.trim().length > 50) {
+      project.lastTranscript = transcript;
+      registry.save(project);
+    }
+
     const worker = require('../workers/documentPolisher');
     const result = await worker.run(project, { agentConfig: agent.config || {}, transcript });
 
@@ -127,7 +134,8 @@ router.get('/:id/export', async (req, res) => {
           const agent = agents.get('documentPolisher');
           if (agent) {
             const worker = require('../workers/documentPolisher');
-            const result = await worker.run(project, { agentConfig: agent.config || {} });
+            const storedTranscript = project.lastTranscript || '';
+            const result = await worker.run(project, { agentConfig: agent.config || {}, transcript: storedTranscript });
             if (result.suggestedPatch && Object.keys(result.suggestedPatch).length > 0) {
               const patch = { ...result.suggestedPatch, _refinementNote: 'Auto-structured at export', _refinementSource: 'worker' };
               project = registry.applyPatch(project, patch);

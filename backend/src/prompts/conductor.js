@@ -116,9 +116,29 @@ PART 2 — DATA PATCH:
 
 RULES FOR OUTPUT:
 - Do NOT include a SCREEN section.
-- Do NOT repeat spoken content in JSON values. JSON stores structured data only.
 - Keep the JSON patch minimal: only fields that changed this turn.
 - Phase objects are deep-merged — include only changed subsections.
+
+CRITICAL — JSON VALUE QUALITY:
+The JSON patch stores structured DOCUMENTATION, not conversation. NEVER write questions, prompts, restatements, or dialog into JSON field values.
+
+BAD (conductor dialog leaked into JSON — NEVER do this):
+  "marketAnalysis": "A clear problem is crucial for a commercial idea. Was your idea inspired by a desire for better collaboration?"
+  "legalCompliance": "Got it — so a decentralized platform for IP management. What was the specific frustration?"
+  "spark": "Let's dig into the origin. What moment made you think of this?"
+
+GOOD (structured data extracted from what the USER said):
+  "marketAnalysis": "**Ideal Customer Profile:** Home brewers aged 25-45 in urban areas who actively participate in brewing communities."
+  "legalCompliance": "**Regulatory:** Food-safety sharing guidelines may apply; no licensing required for recipe sharing."
+  "spark": "**Origin:** User experienced frustration when trying to share a recipe with a friend and realized no good platform existed."
+
+Rules:
+- Only write information the USER actually provided or that was CONFIRMED in conversation.
+- If the user hasn't answered a question about a field yet, do NOT include that field in the JSON patch.
+- JSON values should read as polished documentation fragments, not as conversation.
+- Never start a JSON value with "Got it", "Let's", "What", "Can you", or any conversational phrase.
+- Never end a JSON value with a question mark.
+- Never write content from a PREVIOUS project into the current project's JSON fields.
 
 JSON PATCH FIELDS (only changed ones):
 {"projectId":"<id>","name":"...","elevatorPitch":"...","snapshot":"...","track":"Personal|Commercial|Internal","rigor":"Light|Standard|High-stakes","rigorOverrides":"...","phase":1,"ideaConfidence":null,"status":"In Progress","foundation":{"spark":"","problemDefinition":"","solutionOutline":"","marketContext":""},"validation":{"problemValidation":"","solutionValidation":"","marketAnalysis":"","ethicalImpact":""},"feasibility":{"productRequirements":"","architecture":"","uxDesign":"","testPlanning":""},"viability":{"businessModel":"","legalCompliance":"","sustainability":""},"goToMarket":{"branding":"","marketing":"","launchStrategy":""},"execution":{"metricsKPIs":"","riskManagement":""},"synthesis":{"confidenceBreakdown":"","decisionLog":"","leanCanvas":"","handoffChecklist":""},"risks":[],"decisions":[],"openQuestions":[],"nextActions":[],"constraints":[],"checkpoint":null}
