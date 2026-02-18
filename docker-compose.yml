@@ -31,12 +31,5 @@ services:
     volumes:
       - ./voice-agent/web-test/config.js:/app/config.js:ro
 
-  tunnel:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://backend:3000
-    depends_on:
-      - backend
-
 volumes:
   registry-data:

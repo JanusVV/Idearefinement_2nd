@@ -1,4 +1,0 @@
-:8443 {
-	tls /data/caddy/cert.pem /data/caddy/key.pem
-	reverse_proxy backend:3000
-}

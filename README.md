@@ -4,10 +4,9 @@ Voice-first idea refinement using the [IdeaFramework v4](Specs/Buildingspecs.txt
 
 ## Quick start (Docker)
 
-1. Copy env and set your Gemini API key:
+1. Create `.env` and set your API keys:
    ```bash
-   cp .env.example .env
-   # Edit .env: set GEMINI_API_KEY=
+   # Edit .env: set GEMINI_API_KEY, API_KEY, and optionally XAI_API_KEY
    ```
 
 2. Start backend and web client:
@@ -22,19 +21,6 @@ Voice-first idea refinement using the [IdeaFramework v4](Specs/Buildingspecs.txt
 
 4. Open **http://localhost:3001** and click "Start conversation". The conductor will guide you with one question at a time; the **Screen layer** panel shows the current idea snapshot and registry.
 
-## Remote access (Cloudflare Tunnel)
-
-The backend runs behind a **Cloudflare Tunnel** so it can be reached from anywhere — no port forwarding required, proper HTTPS with a valid certificate, works through double NAT and restrictive ISPs.
-
-```bash
-docker compose up -d          # starts backend + tunnel
-docker logs idearefinement_2nd-tunnel-1   # find the public URL
-```
-
-The tunnel provides a URL like `https://<random>.trycloudflare.com`. Use this as your `BACKEND_URL` in the Android app settings. The URL changes when the tunnel container restarts; check the logs for the new one.
-
-> **Permanent URL:** For a stable URL, create a free [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) account, add a domain, and create a named tunnel with a fixed hostname. Replace the quick-tunnel command in `docker-compose.yml` with `tunnel run --token <YOUR_TOKEN>`.
-
 ## Android app
 
 The Android app (`voice-agent/`) is a WebView wrapper that loads the web client while providing native services (foreground service for background audio, call screening).
@@ -43,7 +29,7 @@ The Android app (`voice-agent/`) is a WebView wrapper that loads the web client 
    ```properties
    sdk.dir=<path-to-android-sdk>
    GEMINI_API_KEY=<your-gemini-api-key>
-   BACKEND_URL=https://<tunnel-url>.trycloudflare.com
+   BACKEND_URL=http://<SERVER_PUBLIC_IP>:3002
    BACKEND_API_KEY=<your-backend-api-key>
    ```
 2. Open `voice-agent/` in Android Studio and build to your device.
@@ -88,9 +74,9 @@ Agent definitions (name, worker type, **model**, **API key reference**) are stor
 
 Only **Gemini** is used for the real-time voice conductor (Live API). The app is set to:
 
-- **`gemini-2.5-flash-native-audio-preview-12-2025`** (in `voice-agent/web-test/index.html` and `voice-agent/app/.../DirectGeminiLiveService.kt`)
+- **`gemini-2.5-flash-native-audio-preview-12-2025`** (in `voice-agent/web-test/index.html` and `voice-agent/app/src/main/assets/web/index.html`)
 
-To use a different Gemini model (e.g. when newer Live models are available), change the `MODEL` constant in those two files. The Live API supports only Gemini models that are enabled for `bidiGenerateContent`.
+To use a different Gemini model, change the `MODEL` constant in those two files. The Live API supports only Gemini models that are enabled for `bidiGenerateContent`.
 
 ### Agents (delegate workers)
 
