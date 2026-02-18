@@ -12,6 +12,8 @@
 const { createScopedLogger } = require('./logger');
 const log = createScopedLogger('LLMClient');
 
+const LLM_TIMEOUT_MS = 60_000;
+
 const PROVIDERS = {
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
@@ -100,7 +102,21 @@ async function chat(agentConfig, messages) {
   log.info(`Calling ${providerKey}/${model}`, { msgCount, systemLen, userLen });
 
   const t0 = Date.now();
-  const res = await fetch(prov.url, reqInit);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(prov.url, { ...reqInit, signal: controller.signal });
+  } catch (e) {
+    clearTimeout(timeout);
+    const elapsedMs = Date.now() - t0;
+    if (e.name === 'AbortError') {
+      log.error(`Timeout after ${elapsedMs}ms calling ${providerKey}/${model}`);
+      throw new Error(`llmClient: request to ${providerKey}/${model} timed out after ${LLM_TIMEOUT_MS}ms`);
+    }
+    throw e;
+  }
+  clearTimeout(timeout);
   const body = await res.json();
   const elapsedMs = Date.now() - t0;
 

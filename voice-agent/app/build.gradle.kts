@@ -23,6 +23,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProps.getProperty("GEMINI_API_KEY", "")}\"")
         buildConfigField("String", "BACKEND_URL", "\"${localProps.getProperty("BACKEND_URL", "")}\"")
+        buildConfigField("String", "FALLBACK_URL", "\"${localProps.getProperty("FALLBACK_URL", "")}\"")
         buildConfigField("String", "BACKEND_API_KEY", "\"${localProps.getProperty("BACKEND_API_KEY", "")}\"")
     }
 

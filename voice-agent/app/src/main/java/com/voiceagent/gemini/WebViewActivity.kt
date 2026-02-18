@@ -119,12 +119,14 @@ class WebViewActivity : ComponentActivity() {
     private fun injectConfig(view: WebView) {
         val geminiKey = BuildConfig.GEMINI_API_KEY
         val backendUrl = settings.backendUrl.replace("'", "\\'")
+        val fallbackUrl = settings.fallbackUrl.replace("'", "\\'")
         val backendApiKey = settings.apiKey.replace("'", "\\'")
 
         val script = """
             window.VOICE_AGENT_CONFIG = {
                 GEMINI_API_KEY: '${geminiKey.replace("'", "\\'")}',
                 BACKEND_URL: '$backendUrl',
+                FALLBACK_URL: '$fallbackUrl',
                 API_KEY: '$backendApiKey'
             };
         """.trimIndent()

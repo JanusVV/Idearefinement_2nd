@@ -13,6 +13,7 @@ services:
       - FRAMEWORK_DEFAULT_SPEC=/specs/Buildingspecs.txt
     volumes:
       - registry-data:/app/data
+      - ./backend/verbose-logs:/app/verbose-logs
       - ./Specs:/specs:ro
 
   web:

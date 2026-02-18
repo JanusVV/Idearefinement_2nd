@@ -19,17 +19,22 @@ const LOG_LEVEL = LEVELS[(process.env.LOG_LEVEL || 'debug').toLowerCase()] ?? LE
 
 const LOGS_DIR = path.join(process.cwd(), 'verbose-logs');
 let logStream = null;
+let logStreamDate = null;
 
 function ensureLogsDir() {
   if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 }
 
 function getLogStream() {
-  if (logStream) return logStream;
-  ensureLogsDir();
   const date = new Date().toISOString().slice(0, 10);
+  if (logStream && logStreamDate === date) return logStream;
+  if (logStream) {
+    try { logStream.end(); } catch (_) { /* ignore */ }
+  }
+  ensureLogsDir();
   const filePath = path.join(LOGS_DIR, `backend-${date}.log`);
   logStream = fs.createWriteStream(filePath, { flags: 'a' });
+  logStreamDate = date;
   return logStream;
 }
 

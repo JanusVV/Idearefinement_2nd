@@ -24,6 +24,11 @@ class SettingsRepository(context: Context) {
             ?: BuildConfig.BACKEND_URL.ifBlank { "" }
         set(value) = prefs.edit().putString(KEY_URL, value).apply()
 
+    var fallbackUrl: String
+        get() = prefs.getString(KEY_FALLBACK_URL, null)
+            ?: BuildConfig.FALLBACK_URL.ifBlank { "" }
+        set(value) = prefs.edit().putString(KEY_FALLBACK_URL, value).apply()
+
     var apiKey: String
         get() = prefs.getString(KEY_API_KEY, null)
             ?: BuildConfig.BACKEND_API_KEY.ifBlank { "" }
@@ -34,6 +39,7 @@ class SettingsRepository(context: Context) {
 
     companion object {
         private const val KEY_URL = "backend_url"
+        private const val KEY_FALLBACK_URL = "fallback_url"
         private const val KEY_API_KEY = "backend_api_key"
     }
 }

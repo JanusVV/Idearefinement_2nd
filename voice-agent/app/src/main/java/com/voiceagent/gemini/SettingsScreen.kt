@@ -32,6 +32,7 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     var url by remember { mutableStateOf(settings.backendUrl) }
+    var fallback by remember { mutableStateOf(settings.fallbackUrl) }
     var key by remember { mutableStateOf(settings.apiKey) }
     var showKey by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf(false) }
@@ -61,7 +62,16 @@ fun SettingsScreen(
                 value = url,
                 onValueChange = { url = it.trim() },
                 label = { Text("Backend URL") },
-                placeholder = { Text("http://192.168.x.x:4000") },
+                placeholder = { Text("http://185.229.55.229:3002") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = fallback,
+                onValueChange = { fallback = it.trim() },
+                label = { Text("Fallback URL (optional)") },
+                placeholder = { Text("https://your-tunnel.trycloudflare.com") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -88,6 +98,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         settings.backendUrl = url
+                        settings.fallbackUrl = fallback
                         settings.apiKey = key
                         onBack()
                     },
