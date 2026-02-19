@@ -103,6 +103,7 @@
     .agent-tracker-title .active-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #facc15; animation: agent-pulse 1.2s ease-in-out infinite; }
     @keyframes agent-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     @keyframes agent-spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .agent-card { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 0.5rem 0.65rem; margin-bottom: 0.4rem; }
     .agent-card-header { display: flex; align-items: center; gap: 0.5rem; }
     .agent-card-name { font-size: 0.8rem; color: #e2e8f0; font-weight: 600; flex: 1; }
@@ -242,6 +243,7 @@
 <body data-view="chat">
   <h1>Voice Agent</h1>
   <p class="status" id="status">Ready. Set API key in config.js and start.</p>
+  <span id="polisherStatus" style="display:none; margin-left:10px; padding:3px 8px; border-radius:4px; background:#2563eb; color:#fff; font-size:0.8em; animation: pulse 1.5s ease-in-out infinite;"></span>
   <div id="configWarning" class="config-warning" hidden>Create <code>config.js</code> from <code>config.example.js</code> and set <code>GEMINI_API_KEY</code>.</div>
   <nav class="tab-bar" id="tabBar">
     <button type="button" class="tab-btn active" data-tab="chat">Chat</button>
@@ -404,6 +406,61 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       return fetch(url, { ...opts, headers });
     }
 
+    const pendingPatches = [];
+    const MAX_PATCH_RETRIES = 3;
+
+    function queueFailedPatch(projectId, patchBody, backendUrl) {
+      pendingPatches.push({ projectId, patchBody, backendUrl, retries: 0 });
+      updateSyncIndicator();
+    }
+
+    function updateSyncIndicator() {
+      let el = document.getElementById('syncIndicator');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'syncIndicator';
+        el.style.cssText = 'position:fixed;bottom:8px;right:8px;padding:4px 10px;background:#f59e0b;color:#000;border-radius:6px;font-size:12px;z-index:9999;display:none;';
+        document.body.appendChild(el);
+      }
+      if (pendingPatches.length > 0) {
+        el.textContent = 'Syncing... (' + pendingPatches.length + ')';
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    async function drainPatchQueue() {
+      if (pendingPatches.length === 0) return;
+      const toRetry = [...pendingPatches];
+      pendingPatches.length = 0;
+      for (const item of toRetry) {
+        const base = (item.backendUrl || '').replace(/\/$/, '');
+        if (!base) continue;
+        try {
+          const res = await authFetch(base + '/projects/' + encodeURIComponent(item.projectId), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: item.patchBody,
+          });
+          if (res.ok) {
+            log('Retry queue: patch succeeded for', item.projectId);
+            const project = await res.json();
+            updateScreenLayer(project);
+          } else {
+            item.retries++;
+            if (item.retries < MAX_PATCH_RETRIES) pendingPatches.push(item);
+            else log('Retry queue: giving up on patch after', MAX_PATCH_RETRIES, 'attempts');
+          }
+        } catch (e) {
+          item.retries++;
+          if (item.retries < MAX_PATCH_RETRIES) pendingPatches.push(item);
+          else log('Retry queue: giving up on patch after error', e);
+        }
+      }
+      updateSyncIndicator();
+    }
+
     const HEALTH_TIMEOUT_MS = 3000;
     async function resolveBackendUrl(primary, fallback) {
       if (!primary) return fallback || '';
@@ -445,6 +502,12 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     }
 
     const dispatchedAgentSignatures = new Set();
+    let lastAppliedPatchHash = '';
+
+    function simplePatchHash(obj) {
+      try { return JSON.stringify(obj); } catch (_) { return ''; }
+    }
+
     function extractAgentDispatch(text) {
       if (!text || typeof text !== 'string') return null;
       const m = text.match(/---AGENT---\s*([\s\S]*?)---AGENT---/);
@@ -454,7 +517,8 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const pipeIdx = firstLine.indexOf('|');
       const agentId = (pipeIdx >= 0 ? firstLine.slice(0, pipeIdx).trim() : firstLine.trim());
       const taskDescription = pipeIdx >= 0 ? firstLine.slice(pipeIdx + 1).trim() : '';
-      return { agentId, taskDescription, signature: firstLine };
+      const normalizedSig = firstLine.toLowerCase().replace(/\s+/g, ' ').trim();
+      return { agentId, taskDescription, signature: normalizedSig };
     }
     async function tryDispatchAgentTask(text, projectId, backendUrl) {
       const d = extractAgentDispatch(text);
@@ -687,6 +751,19 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
     let _lastSectionExtractHash = '';
 
+    const TRAILING_QUESTION_RE = /[.!]?\s*(?:(?:can|could|would|should|do|did|is|are|what|how|why|where|when|tell|let|have)\s.{5,}\?)\s*$/i;
+
+    function filterConversationalContent(text) {
+      let t = text.replace(TRAILING_QUESTION_RE, '').trim();
+      if (t.length > 0 && !/[.!?]$/.test(t)) {
+        const lastSentenceEnd = Math.max(t.lastIndexOf('. '), t.lastIndexOf('! '), t.lastIndexOf('? '));
+        if (lastSentenceEnd > 20) {
+          t = t.slice(0, lastSentenceEnd + 1).trim();
+        }
+      }
+      return t;
+    }
+
     function setNestedField(patch, fieldPath, value) {
       const [phase, sub] = fieldPath.split('.');
       if (sub) {
@@ -704,43 +781,31 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         if (!existing || typeof existing !== 'object') continue;
         for (const [sub, subVal] of Object.entries(value)) {
           if (typeof subVal === 'string' && existing[sub] && typeof existing[sub] === 'string') {
-            if (!existing[sub].includes(subVal.slice(0, 60))) {
+            const isDuplicate = existing[sub].endsWith(subVal) || existing[sub] === subVal;
+            if (isDuplicate) {
+              delete value[sub];
+            } else {
               patch[key][sub] = existing[sub] + '\n\n---\n\n' + subVal;
             }
           }
         }
+        if (Object.keys(value).length === 0) delete patch[key];
       }
     }
 
-    async function tryExtractSectionContent(fullTurnText, projectId, backendUrl) {
-      if (!fullTurnText || !projectId || !backendUrl) return;
+    async function tryExtractSectionContent(rawTurnText, projectId, backendUrl) {
+      if (!rawTurnText || !projectId || !backendUrl) return;
+      const fullTurnText = stripMarkers(rawTurnText);
       if (fullTurnText.length < 40) return;
       const hash = fullTurnText.length + ':' + fullTurnText.slice(-50);
       if (hash === _lastSectionExtractHash) return;
       _lastSectionExtractHash = hash;
       const base = backendUrl.replace(/\/$/, '');
 
-      /* Strategy 1: Markdown headers (### ...) */
-      const headerRe = /#{2,4}\s+(.+?)(?:\n|$)/g;
-      const headerHits = [];
-      let m;
-      while ((m = headerRe.exec(fullTurnText)) !== null) {
-        headerHits.push({ header: m[1].trim(), matchStart: m.index, contentStart: m.index + m[0].length });
-      }
-
-      /* Strategy 2: Section number references (section 1.1, for 3.2, 1.1 —, etc.) */
-      const sectionRefRe = /(?:section\s+|for\s+|^|\.\s+)(\d\.\d)\b\s*[—–\-:,\.]/gim;
-      const sectionHits = [];
-      while ((m = sectionRefRe.exec(fullTurnText)) !== null) {
-        const num = m[1];
-        if (SECTION_NUMBER_MAP[num] && !sectionHits.some(h => h.num === num)) {
-          sectionHits.push({ num, field: SECTION_NUMBER_MAP[num], matchStart: m.index, contentStart: m.index + m[0].length });
-        }
-      }
-
-      /* Strategy 3: Keyword-based fallback on full turn text */
+      /* Simple keyword-based extraction for real-time visual feedback.
+         The DocumentPolisher LLM handles proper structuring after each phase. */
       let keywordField = null;
-      if (headerHits.length === 0 && sectionHits.length === 0 && fullTurnText.length > 60) {
+      if (fullTurnText.length > 60) {
         let bestScore = 0;
         for (const entry of SECTION_KEYWORD_MAP) {
           const km = fullTurnText.match(entry.re);
@@ -749,38 +814,15 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             if (score > bestScore) { bestScore = score; keywordField = entry.field; }
           }
         }
-        if (keywordField) log('Section extraction (keyword fallback): → ' + keywordField);
       }
 
-      /* Build merged patch */
       const mergedPatch = {};
-
-      if (headerHits.length > 0) {
-        for (let i = 0; i < headerHits.length; i++) {
-          const contentEnd = i + 1 < headerHits.length ? headerHits[i + 1].matchStart : fullTurnText.length;
-          const content = fullTurnText.slice(headerHits[i].contentStart, contentEnd).trim();
-          if (content.length < 20) continue;
-          const field = identifySectionField(headerHits[i].header);
-          if (!field) continue;
-          setNestedField(mergedPatch, field, '### ' + headerHits[i].header + '\n' + content);
-          log('Section extraction (header): "' + headerHits[i].header.slice(0, 40) + '" → ' + field);
+      if (keywordField) {
+        const filtered = filterConversationalContent(fullTurnText.trim());
+        if (filtered.length >= 20) {
+          setNestedField(mergedPatch, keywordField, filtered);
+          log('Section extraction (keyword): → ' + keywordField);
         }
-      }
-
-      if (Object.keys(mergedPatch).length === 0 && sectionHits.length > 0) {
-        sectionHits.sort((a, b) => a.matchStart - b.matchStart);
-        for (let i = 0; i < sectionHits.length; i++) {
-          const contentEnd = i + 1 < sectionHits.length ? sectionHits[i + 1].matchStart : fullTurnText.length;
-          const content = fullTurnText.slice(sectionHits[i].contentStart, contentEnd).trim();
-          if (content.length < 20) continue;
-          setNestedField(mergedPatch, sectionHits[i].field, content);
-          log('Section extraction (ref ' + sectionHits[i].num + '): → ' + sectionHits[i].field);
-        }
-      }
-
-      if (Object.keys(mergedPatch).length === 0 && keywordField) {
-        setNestedField(mergedPatch, keywordField, fullTurnText.trim());
-        log('Section extraction (keyword): → ' + keywordField);
       }
 
       if (Object.keys(mergedPatch).length === 0) return;
@@ -808,6 +850,8 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     async function tryApplyRegistryPatch(text, projectId, backendUrl) {
       const patch = extractJsonPatch(text);
       if (!patch || !backendUrl) return;
+      const hash = simplePatchHash(patch);
+      if (hash && hash === lastAppliedPatchHash) return;
       const base = backendUrl.replace(/\/$/, '');
       try {
         if (patch.createNewProject) {
@@ -845,17 +889,42 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         delete patchForBackend.switchToProjectName;
         delete patchForBackend.createNewProject;
         if (Object.keys(patchForBackend).length === 0) return;
+        for (const [k, v] of Object.entries(patchForBackend)) {
+          if (typeof v === 'string') {
+            patchForBackend[k] = stripMarkers(v);
+          } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+            for (const [sk, sv] of Object.entries(v)) {
+              if (typeof sv === 'string') v[sk] = stripMarkers(sv);
+            }
+          }
+        }
         const screenNote = extractScreenText(text);
         if (screenNote) patchForBackend._refinementNote = screenNote;
         patchForBackend._refinementSource = 'voice';
-        const res = await authFetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patchForBackend) });
-        if (!res.ok) { log('Registry PATCH failed', res.status); return; }
+        const patchBodyStr = JSON.stringify(patchForBackend);
+        const res = await authFetch(base + '/projects/' + encodeURIComponent(projectId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: patchBodyStr });
+        if (!res.ok) {
+          log('Registry PATCH failed', res.status);
+          queueFailedPatch(projectId, patchBodyStr, backendUrl);
+          return;
+        }
+        lastAppliedPatchHash = hash;
         const project = await res.json();
         updateScreenLayer(project);
         await refreshProjectsList();
         syncProjectsSelectToCurrent();
         log('Registry updated, projectId=', projectId);
-      } catch (e) { log('Registry PATCH error', e); }
+
+        const newPhase = patchForBackend.phase != null ? patchForBackend.phase : (project.phase != null ? project.phase : null);
+        if (newPhase != null && newPhase !== lastPolishedPhase) {
+          log('Phase transition detected: ' + lastPolishedPhase + ' → ' + newPhase);
+          lastPolishedPhase = newPhase;
+          triggerDocumentPolisher(projectId, backendUrl, 'phase ' + newPhase);
+        }
+      } catch (e) {
+        log('Registry PATCH error', e);
+        try { queueFailedPatch(projectId, JSON.stringify(patchForBackend), backendUrl); } catch (_) {}
+      }
     }
 
     function syncProjectsSelectToCurrent() {
@@ -1244,7 +1313,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     function hideError() { errorEl.hidden = true; }
     function addTranscript(label, text) {
       const forUser = label === 'You';
-      const cleaned = stripSpeakerPrefix(text, forUser);
+      const cleaned = stripMarkers(stripSpeakerPrefix(text, forUser));
       if (!cleaned) return;
       const line = document.createElement('div');
       line.className = 'line ' + (forUser ? 'user' : 'model');
@@ -1256,7 +1325,9 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (userFlushTimer) clearTimeout(userFlushTimer);
       userFlushTimer = null;
       if (userTranscriptBuffer.trim()) {
-        addTranscript('You', userTranscriptBuffer.trim());
+        const text = userTranscriptBuffer.trim();
+        addTranscript('You', text);
+        conversationLog.push({ speaker: 'user', text, at: new Date().toISOString() });
         userTranscriptBuffer = '';
       }
     }
@@ -1264,8 +1335,14 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       if (modelFlushTimer) clearTimeout(modelFlushTimer);
       modelFlushTimer = null;
       if (modelTranscriptBuffer.trim()) {
-        addTranscript('Model', modelTranscriptBuffer.trim());
+        const text = modelTranscriptBuffer.trim();
+        addTranscript('Model', text);
+        conversationLog.push({ speaker: 'model', text, at: new Date().toISOString() });
         modelTranscriptBuffer = '';
+        modelTurnCount++;
+        if (modelTurnCount > 0 && modelTurnCount % POLISHER_EVERY_N_TURNS === 0 && currentProjectId && currentBackendUrl) {
+          triggerDocumentPolisher(currentProjectId, currentBackendUrl, 'periodic (turn ' + modelTurnCount + ')');
+        }
       }
     }
     function scheduleModelSpeakingEnd(_durationMs) {
@@ -1287,6 +1364,10 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let audioContext = null;
     let processor = null;
     let setupDone = false;
+    let userInitiatedClose = false;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 3;
+    let lastConversationConfig = null;
     const micLevel = { rms: 0, speaking: false, ticks: 0, analyser: null };
     let micMeterInterval = null;
     /** Half-duplex: true while model audio is playing so we don't send mic and hear ourselves */
@@ -1298,7 +1379,15 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     let modelTranscriptBuffer = '';
     let modelFlushTimer = null;
     let modelTurnTranscript = '';
+    let sectionExtractTimer = null;
+    const SECTION_EXTRACT_DEBOUNCE_MS = 3000;
+    let conversationLog = [];
+    let lastTranscriptSaveLen = 0;
     const TRANSCRIPT_FLUSH_MS = 700;
+    let lastPolishedPhase = null;
+    let polisherRunning = false;
+    let modelTurnCount = 0;
+    const POLISHER_EVERY_N_TURNS = 8;
     /** Ignore inputTranscription for this long after model output/audio (avoids attributing echoed model speech to user) */
     const ECHO_SUPPRESS_MS = 800;
     /** After model stops, brief mute so we don't send echo; then we only send when user is speaking (see send logic) */
@@ -1322,6 +1411,97 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     const deliveredTaskIds = new Set();
     let agentResultsPollInterval = null;
     const AGENT_RESULTS_POLL_MS = 5000;
+
+    function mergeConsecutiveTranscript(entries) {
+      if (!entries || entries.length === 0) return [];
+      const merged = [];
+      let current = { speaker: entries[0].speaker, text: entries[0].text };
+      for (let i = 1; i < entries.length; i++) {
+        if (entries[i].speaker === current.speaker) {
+          const sep = current.text.match(/[.!?:,]$/) ? ' ' : ' ';
+          current.text += sep + entries[i].text;
+        } else {
+          merged.push(current);
+          current = { speaker: entries[i].speaker, text: entries[i].text };
+        }
+      }
+      merged.push(current);
+      return merged;
+    }
+
+    function formatTranscriptForPolisher() {
+      if (conversationLog.length === 0) return '';
+      const merged = mergeConsecutiveTranscript(conversationLog);
+      return merged.map(e => (e.speaker === 'user' ? 'User' : 'Model') + ': ' + e.text).join('\n\n');
+    }
+
+    function buildReconnectContext() {
+      if (conversationLog.length === 0) return null;
+      const merged = mergeConsecutiveTranscript(conversationLog);
+      const MAX_TURNS = 30;
+      const recent = merged.length > MAX_TURNS ? merged.slice(-MAX_TURNS) : merged;
+      let ctx = '[System: The WebSocket connection was interrupted and this is a NEW session. You MUST continue the conversation where it left off. DO NOT start over or re-introduce yourself. Here is the conversation history so far:]\n\n';
+      for (const entry of recent) {
+        ctx += (entry.speaker === 'user' ? 'User' : 'Model') + ': ' + entry.text + '\n\n';
+      }
+      ctx += '[System: Continue from where the conversation left off. Do NOT repeat questions already asked or topics already covered. Pick up naturally from the last exchange above.]';
+      return ctx;
+    }
+
+    async function triggerDocumentPolisher(projectId, backendUrl, reason) {
+      if (!projectId || !backendUrl) return;
+      if (polisherRunning) {
+        log('DocumentPolisher: skipped (already running), reason=' + reason);
+        return;
+      }
+      const transcript = formatTranscriptForPolisher();
+      if (transcript.length < 100) {
+        log('DocumentPolisher: skipped (transcript too short: ' + transcript.length + ')');
+        return;
+      }
+      polisherRunning = true;
+      const base = backendUrl.replace(/\/$/, '');
+      const statusEl = document.getElementById('polisherStatus');
+      if (statusEl) {
+        statusEl.textContent = 'Structuring data (' + reason + ')...';
+        statusEl.style.display = 'inline';
+      }
+      log('DocumentPolisher: triggering, reason=' + reason + ', transcript=' + transcript.length + ' chars');
+      try {
+        flushUserTranscript();
+        flushModelTranscript();
+        if (conversationLog.length > lastTranscriptSaveLen) {
+          await authFetch(base + '/projects/' + encodeURIComponent(projectId), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationTranscript: conversationLog, _refinementNote: 'transcript before polish', _refinementSource: 'voice' })
+          });
+          lastTranscriptSaveLen = conversationLog.length;
+        }
+        const res = await authFetch(base + '/projects/' + encodeURIComponent(projectId) + '/structure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript })
+        });
+        if (res.ok) {
+          const project = await res.json();
+          updateScreenLayer(project);
+          await refreshProjectsList();
+          syncProjectsSelectToCurrent();
+          log('DocumentPolisher: success, reason=' + reason);
+          if (statusEl) statusEl.textContent = 'Structured!';
+          setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+        } else {
+          log('DocumentPolisher: failed with status ' + res.status);
+          if (statusEl) { statusEl.textContent = 'Structuring failed'; setTimeout(() => { statusEl.style.display = 'none'; }, 3000); }
+        }
+      } catch (e) {
+        log('DocumentPolisher: error', e);
+        if (statusEl) { statusEl.textContent = 'Structuring error'; setTimeout(() => { statusEl.style.display = 'none'; }, 3000); }
+      } finally {
+        polisherRunning = false;
+      }
+    }
 
     function formatAgentResultSummary(result) {
       if (result == null) return '(no result)';
@@ -1440,6 +1620,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
     }
 
     async function pollAgentResults() {
+      await drainPatchQueue();
       if (!currentProjectId || !currentBackendUrl || !ws || ws.readyState !== WebSocket.OPEN) return;
       const base = currentBackendUrl.replace(/\/$/, '');
       try {
@@ -1520,6 +1701,14 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
         t = t.replace(re, '').trim();
       }
       return t;
+    }
+
+    function stripMarkers(text) {
+      return text
+        .replace(/---JSON---[\s\S]*?---JSON---/g, '')
+        .replace(/---AGENT---[\s\S]*?---AGENT---/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
     }
 
     function base64FromPCM(pcm16) {
@@ -1672,11 +1861,11 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             lastModelOutputTime = Date.now();
             log('outputTranscription:', outputT.text?.slice(0, 80));
             detectNewProjectFromModelOutput(outputT.text);
-            if (currentProjectId && currentBackendUrl && LAUNCH_AGENT_RE.test(outputT.text)) {
-              tryExtractFromSpeech(outputT.text, currentProjectId, currentBackendUrl);
-            }
+            const needsSpace = modelTurnTranscript.length > 0
+              && !modelTurnTranscript.endsWith(' ')
+              && !outputT.text.startsWith(' ');
             modelTranscriptBuffer += outputT.text;
-            modelTurnTranscript += outputT.text;
+            modelTurnTranscript += (needsSpace ? ' ' : '') + outputT.text;
             if (currentProjectId && currentBackendUrl) {
               tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
               tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
@@ -1687,6 +1876,16 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             }
             if (modelFlushTimer) clearTimeout(modelFlushTimer);
             modelFlushTimer = setTimeout(flushModelTranscript, TRANSCRIPT_FLUSH_MS);
+            if (sectionExtractTimer) {
+              clearTimeout(sectionExtractTimer);
+              sectionExtractTimer = setTimeout(() => {
+                sectionExtractTimer = null;
+                if (modelTurnTranscript && currentProjectId && currentBackendUrl) {
+                  tryExtractSectionContent(modelTurnTranscript, currentProjectId, currentBackendUrl);
+                  modelTurnTranscript = '';
+                }
+              }, SECTION_EXTRACT_DEBOUNCE_MS);
+            }
           }
           if (inputT?.text) {
             const now = Date.now();
@@ -1752,8 +1951,14 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
               tryExtractFromSpeech(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
             }
             if (modelTurnTranscript && currentProjectId && currentBackendUrl) {
-              tryExtractSectionContent(modelTurnTranscript, currentProjectId, currentBackendUrl);
-              modelTurnTranscript = '';
+              if (sectionExtractTimer) clearTimeout(sectionExtractTimer);
+              sectionExtractTimer = setTimeout(() => {
+                sectionExtractTimer = null;
+                if (modelTurnTranscript && currentProjectId && currentBackendUrl) {
+                  tryExtractSectionContent(modelTurnTranscript, currentProjectId, currentBackendUrl);
+                  modelTurnTranscript = '';
+                }
+              }, SECTION_EXTRACT_DEBOUNCE_MS);
             }
           }
           if (c && !inputT?.text && !outputT?.text && (!parts || !parts.length)) {
@@ -1774,9 +1979,70 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           log.ws('ONCLOSE: code=', ev.code, 'reason=', ev.reason, 'wasClean=', ev.wasClean);
           log.ws('ONCLOSE full event:', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
           clearTimeout(t);
-          if (!setupDone && ev.code !== 1000) finish(new Error('Connection closed: ' + (ev.reason || ev.code)));
+          if (!setupDone && ev.code !== 1000) {
+            finish(new Error('Connection closed: ' + (ev.reason || ev.code)));
+            return;
+          }
+          if (setupDone && !userInitiatedClose && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            attemptReconnect();
+          }
         };
       });
+    }
+
+    async function attemptReconnect() {
+      reconnectAttempts++;
+      const delayMs = Math.min(2000 * Math.pow(2, reconnectAttempts - 1), 8000);
+      log('Connection lost. Reconnecting in', delayMs, 'ms (attempt', reconnectAttempts + '/' + MAX_RECONNECT_ATTEMPTS + ')');
+      setStatus('Connection lost. Reconnecting…', 'error');
+      await new Promise(r => setTimeout(r, delayMs));
+      if (userInitiatedClose) return;
+      if (!lastConversationConfig) {
+        log('Cannot reconnect: no saved config');
+        setStatus('Connection lost', 'error');
+        return;
+      }
+      try {
+        const cfg = lastConversationConfig;
+        await startConversation(cfg.apiKey, {
+          systemInstruction: cfg.systemInstruction,
+          projectId: cfg.projectId,
+          backendUrl: cfg.backendUrl,
+        });
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          flushUserTranscript();
+          flushModelTranscript();
+          const ctx = buildReconnectContext();
+          if (ctx) {
+            const turns = [];
+            const merged = mergeConsecutiveTranscript(conversationLog);
+            const MAX_HISTORY = 30;
+            const recent = merged.length > MAX_HISTORY ? merged.slice(-MAX_HISTORY) : merged;
+            for (const entry of recent) {
+              turns.push({ role: entry.speaker === 'user' ? 'user' : 'model', parts: [{ text: entry.text }] });
+            }
+            turns.push({ role: 'user', parts: [{ text: '[System: The connection was interrupted. This is a reconnected session with the conversation history above. Continue EXACTLY where we left off. Do NOT start over, re-introduce yourself, or repeat questions already asked. ProjectId: ' + (currentProjectId || 'unknown') + ']' }] });
+            ws.send(JSON.stringify({ clientContent: { turns, turnComplete: true } }));
+            log('Reconnect: sent ' + (turns.length - 1) + ' history turns + resume instruction');
+          } else {
+            ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[System: Connection was briefly interrupted. Continue the conversation. ProjectId: ' + (currentProjectId || 'unknown') + ']' }] }], turnComplete: true } }));
+          }
+          await startMic(ws);
+          if (currentProjectId && currentBackendUrl && !agentResultsPollInterval) {
+            agentResultsPollInterval = setInterval(pollAgentResults, AGENT_RESULTS_POLL_MS);
+          }
+          reconnectAttempts = 0;
+          setStatus('Reconnected – conversation resumed', 'active');
+          log('Reconnection successful');
+        }
+      } catch (e) {
+        log('Reconnection failed:', e.message);
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && !userInitiatedClose) {
+          attemptReconnect();
+        } else {
+          setStatus('Connection lost. Click Stop then Start to retry.', 'error');
+        }
+      }
     }
 
     async function startMic(ws) {
@@ -1915,6 +2181,16 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
     function stopAll() {
       log('stopAll: clearing processor, mediaStream, ws');
+      userInitiatedClose = true;
+      if (sectionExtractTimer) {
+        clearTimeout(sectionExtractTimer);
+        sectionExtractTimer = null;
+        if (modelTurnTranscript && currentProjectId && currentBackendUrl) {
+          tryExtractSectionContent(modelTurnTranscript, currentProjectId, currentBackendUrl);
+          modelTurnTranscript = '';
+        }
+      }
+      drainPatchQueue().catch(() => {});
       if (agentResultsPollInterval) {
         clearInterval(agentResultsPollInterval);
         agentResultsPollInterval = null;
@@ -1927,6 +2203,26 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       flushUserTranscript();
       flushModelTranscript();
       modelTurnTranscript = '';
+      if (currentProjectId && currentBackendUrl) {
+        const pid = currentProjectId;
+        const burl = currentBackendUrl;
+        const saveAndPolish = async () => {
+          try {
+            if (conversationLog.length > lastTranscriptSaveLen) {
+              const base = burl.replace(/\/$/, '');
+              await authFetch(base + '/projects/' + encodeURIComponent(pid), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversationTranscript: conversationLog, _refinementNote: 'conversation transcript', _refinementSource: 'voice' })
+              });
+              lastTranscriptSaveLen = conversationLog.length;
+              log('Saved conversation transcript (' + conversationLog.length + ' entries)');
+            }
+            await triggerDocumentPolisher(pid, burl, 'session end');
+          } catch (e) { log('stopAll: save/polish error', e); }
+        };
+        saveAndPolish();
+      }
       if (micMeterInterval) {
         clearInterval(micMeterInterval);
         micMeterInterval = null;
@@ -2070,6 +2366,9 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       const systemInstruction = conductorPrompt || undefined;
       setStatus('Connecting…');
       btnStart.disabled = true;
+      userInitiatedClose = false;
+      reconnectAttempts = 0;
+      lastConversationConfig = { apiKey, systemInstruction, projectId, backendUrl: currentBackendUrl };
       try {
         log('Calling startConversation(apiKey, options)...');
         await startConversation(apiKey, { systemInstruction, projectId, backendUrl: currentBackendUrl });

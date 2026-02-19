@@ -77,6 +77,7 @@ const DEFAULT_PROJECT = {
   moduleState: {},
   agentResults: [],
   refinements: [],
+  conversationTranscript: [],
 };
 
 function ensureDataDir() {
@@ -93,14 +94,26 @@ function load(projectId) {
   ensureDataDir();
   const file = projectPath(projectId);
   if (!fs.existsSync(file)) return null;
-  const raw = fs.readFileSync(file, 'utf8');
-  return JSON.parse(raw);
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error(`registry.load: failed to read/parse ${file}:`, e.message);
+    return null;
+  }
 }
 
 function save(project) {
   ensureDataDir();
   const file = projectPath(project.projectId);
-  fs.writeFileSync(file, JSON.stringify(project, null, 2), 'utf8');
+  const tmpFile = file + '.tmp';
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(project, null, 2), 'utf8');
+    fs.renameSync(tmpFile, file);
+  } catch (e) {
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+    throw e;
+  }
   return project;
 }
 
@@ -147,20 +160,58 @@ function buildChangeSummary(project, patch, allowed) {
  *   _refinementNote  – optional free-text note from the caller (e.g. model screen text)
  *   _refinementSource – optional source label: 'voice' | 'worker' | 'manual' (default: 'voice')
  */
+const ARRAY_FIELDS = new Set(['risks', 'decisions', 'openQuestions', 'nextActions', 'constraints', 'agentResults', 'refinements', 'conversationTranscript']);
+const STRING_FIELDS = new Set([
+  'name', 'snapshot', 'track', 'rigor', 'rigorOverrides', 'status',
+  'elevatorPitch', 'mvp', 'nonGoals', 'validationPlan', 'buildPlan',
+]);
+
+function stripMarkersFromString(s) {
+  return s
+    .replace(/---JSON---[\s\S]*?---JSON---/g, '')
+    .replace(/---AGENT---[\s\S]*?---AGENT---/g, '')
+    .trim();
+}
+
+function sanitizePatchValues(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    if (ARRAY_FIELDS.has(k) && !Array.isArray(v)) continue;
+    if (STRING_FIELDS.has(k) && typeof v !== 'string') continue;
+    if (k === 'phase' && (typeof v !== 'number' || v < 1 || v > 7)) continue;
+    if (k === 'ideaConfidence' && v !== null && (typeof v !== 'number' || v < 0 || v > 100)) continue;
+    if (k === 'sessionCount' && typeof v !== 'number') continue;
+    if (typeof v === 'string') {
+      out[k] = stripMarkersFromString(v);
+    } else if (PHASE_OBJECT_KEYS.has(k) && typeof v === 'object' && v !== null && !Array.isArray(v)) {
+      const sub = {};
+      for (const [sk, sv] of Object.entries(v)) {
+        if (typeof sv === 'string') sub[sk] = stripMarkersFromString(sv);
+        else if (sv !== undefined) sub[sk] = sv;
+      }
+      out[k] = sub;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 function applyPatch(project, patch) {
   const allowed = new Set([
     'name', 'snapshot', 'track', 'rigor', 'phase', 'backlog', 'risks', 'decisions',
     'openQuestions', 'nextActions', 'checkpoint', 'constraints', 'mvp', 'nonGoals',
     'validationPlan', 'buildPlan', 'moduleState', 'lastActiveAt', 'agentResults',
     'status', 'ideaConfidence', 'rigorOverrides', 'sessionCount', 'elevatorPitch',
-    'lastStructuredAt',
+    'lastStructuredAt', 'conversationTranscript',
     'foundation', 'validation', 'feasibility', 'viability',
     'goToMarket', 'execution', 'synthesis',
   ]);
 
   const refinementNote = patch._refinementNote || '';
   const refinementSource = patch._refinementSource || 'voice';
-  const cleanPatch = { ...patch };
+  const cleanPatch = sanitizePatchValues({ ...patch });
   delete cleanPatch._refinementNote;
   delete cleanPatch._refinementSource;
 

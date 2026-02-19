@@ -23,6 +23,7 @@ const BASE_DIR = process.env.REGISTRY_DATA_DIR
   ? path.join(path.dirname(process.env.REGISTRY_DATA_DIR), 'agent-tasks')
   : path.join(process.cwd(), 'data', 'agent-tasks');
 const MAX_PROJECT_AGENT_RESULTS = 10;
+const WORKER_TIMEOUT_MS = 5 * 60 * 1000;
 
 function ensureDir() {
   if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true });
@@ -36,12 +37,25 @@ function loadTask(taskId) {
   ensureDir();
   const file = taskPath(taskId);
   if (!fs.existsSync(file)) return null;
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    log.error(`Failed to read/parse task ${taskId}:`, e.message);
+    return null;
+  }
 }
 
 function saveTask(task) {
   ensureDir();
-  fs.writeFileSync(taskPath(task.taskId), JSON.stringify(task, null, 2), 'utf8');
+  const file = taskPath(task.taskId);
+  const tmpFile = file + '.tmp';
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(task, null, 2), 'utf8');
+    fs.renameSync(tmpFile, file);
+  } catch (e) {
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+    throw e;
+  }
 }
 
 async function runWorkerForTask(task) {
@@ -73,7 +87,10 @@ async function runWorkerForTask(task) {
   const t0 = Date.now();
   try {
     const options = { agentConfig: task.agentConfig || {}, taskDescription: task.taskDescription || '' };
-    const result = await worker.run(project, options);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Worker timed out after ' + (WORKER_TIMEOUT_MS / 1000) + 's')), WORKER_TIMEOUT_MS)
+    );
+    const result = await Promise.race([worker.run(project, options), timeoutPromise]);
     const elapsedMs = Date.now() - t0;
     task.status = 'completed';
     task.result = result.structuredResult;

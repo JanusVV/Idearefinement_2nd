@@ -34,12 +34,16 @@ router.post('/', (req, res) => {
 router.patch('/:id', (req, res) => {
   const project = registry.load(req.params.id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Patch must be a JSON object' });
+  }
   try {
     const updated = registry.applyPatch(project, { ...req.body, projectId: project.projectId });
     registry.save(updated);
     res.json(updated);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    const isBadInput = e.message && (e.message.includes('Invalid') || e.message.includes('malformed'));
+    res.status(isBadInput ? 400 : 500).json({ error: e.message });
   }
 });
 
