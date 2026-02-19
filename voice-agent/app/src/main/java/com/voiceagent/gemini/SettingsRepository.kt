@@ -2,22 +2,33 @@ package com.voiceagent.gemini
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
 /**
  * Securely stores backend URL and API key using EncryptedSharedPreferences.
+ * Falls back to regular SharedPreferences on devices where Keystore fails (avoids crash).
  * Falls back to BuildConfig defaults if not set.
  */
 class SettingsRepository(context: Context) {
 
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        "voiceagent_secure_prefs",
-        MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
-        context,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val prefs: SharedPreferences = createPrefs(context)
+
+    private fun createPrefs(context: Context): SharedPreferences {
+        return try {
+            EncryptedSharedPreferences.create(
+                "voiceagent_secure_prefs",
+                MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+                context,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "EncryptedSharedPreferences failed, using fallback", e)
+            context.getSharedPreferences("voiceagent_prefs", Context.MODE_PRIVATE)
+        }
+    }
 
     var backendUrl: String
         get() = prefs.getString(KEY_URL, null)
@@ -38,6 +49,7 @@ class SettingsRepository(context: Context) {
         get() = backendUrl.isNotBlank() && apiKey.isNotBlank()
 
     companion object {
+        private const val TAG = "SettingsRepository"
         private const val KEY_URL = "backend_url"
         private const val KEY_FALLBACK_URL = "fallback_url"
         private const val KEY_API_KEY = "backend_api_key"

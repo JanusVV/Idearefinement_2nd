@@ -80,6 +80,11 @@ class WebViewActivity : ComponentActivity() {
                 injectConfig(view)
             }
 
+            override fun onPageFinished(view: WebView, url: String?) {
+                super.onPageFinished(view, url)
+                injectConfig(view)
+            }
+
             @SuppressLint("WebViewClientOnReceivedSslError")
             override fun onReceivedSslError(
                 view: WebView,
@@ -117,21 +122,25 @@ class WebViewActivity : ComponentActivity() {
     }
 
     private fun injectConfig(view: WebView) {
-        val geminiKey = BuildConfig.GEMINI_API_KEY
-        val backendUrl = settings.backendUrl.replace("'", "\\'")
-        val fallbackUrl = settings.fallbackUrl.replace("'", "\\'")
-        val backendApiKey = settings.apiKey.replace("'", "\\'")
+        try {
+            val geminiKey = BuildConfig.GEMINI_API_KEY
+            val backendUrl = settings.backendUrl.replace("'", "\\'")
+            val fallbackUrl = settings.fallbackUrl.replace("'", "\\'")
+            val backendApiKey = settings.apiKey.replace("'", "\\'")
 
-        val script = """
-            window.VOICE_AGENT_CONFIG = {
-                GEMINI_API_KEY: '${geminiKey.replace("'", "\\'")}',
-                BACKEND_URL: '$backendUrl',
-                FALLBACK_URL: '$fallbackUrl',
-                API_KEY: '$backendApiKey'
-            };
-        """.trimIndent()
+            val script = """
+                window.VOICE_AGENT_CONFIG = {
+                    GEMINI_API_KEY: '${geminiKey.replace("'", "\\'")}',
+                    BACKEND_URL: '$backendUrl',
+                    FALLBACK_URL: '$fallbackUrl',
+                    API_KEY: '$backendApiKey'
+                };
+            """.trimIndent()
 
-        view.evaluateJavascript(script, null)
+            view.evaluateJavascript(script, null)
+        } catch (e: Exception) {
+            android.util.Log.w("WebViewActivity", "injectConfig failed", e)
+        }
     }
 
     inner class SessionBridge {
@@ -167,7 +176,14 @@ class WebViewActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        webView.destroy()
+        try {
+            webView.removeJavascriptInterface("Android")
+            webView.stopLoading()
+            webView.loadUrl("about:blank")
+            webView.destroy()
+        } catch (e: Exception) {
+            android.util.Log.w("WebViewActivity", "onDestroy cleanup", e)
+        }
         super.onDestroy()
     }
 }
