@@ -1448,6 +1448,133 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       return ctx;
     }
 
+    const MAX_FIELD_CONTEXT = 800;
+    const MAX_TRANSCRIPT_CONTEXT = 120000;
+
+    const PHASE_SECTIONS = [
+      { phase: 'foundation', name: 'Phase 1 — Foundation', fields: [
+        { key: 'spark', label: '1.1 The Spark' },
+        { key: 'problemDefinition', label: '1.2 Problem Definition' },
+        { key: 'solutionOutline', label: '1.3 Solution Outline' },
+        { key: 'marketContext', label: '1.4 Market Context' }
+      ]},
+      { phase: 'validation', name: 'Phase 2 — Validation', fields: [
+        { key: 'problemValidation', label: '2.1 Problem Validation' },
+        { key: 'solutionValidation', label: '2.2 Solution Validation' },
+        { key: 'marketAnalysis', label: '2.3 Market Analysis' },
+        { key: 'ethicalImpact', label: '2.4 Ethical Impact' }
+      ]},
+      { phase: 'feasibility', name: 'Phase 3 — Feasibility', fields: [
+        { key: 'productRequirements', label: '3.1 Product Requirements' },
+        { key: 'architecture', label: '3.2 Architecture' },
+        { key: 'uxDesign', label: '3.3 UX Design' },
+        { key: 'testPlanning', label: '3.4 Test Planning' }
+      ]},
+      { phase: 'viability', name: 'Phase 4 — Viability', fields: [
+        { key: 'businessModel', label: '4.1 Business Model' },
+        { key: 'legalCompliance', label: '4.2 Legal Compliance' },
+        { key: 'sustainability', label: '4.3 Sustainability' }
+      ]},
+      { phase: 'goToMarket', name: 'Phase 5 — Go-to-Market', fields: [
+        { key: 'branding', label: '5.1 Branding' },
+        { key: 'marketing', label: '5.2 Marketing' },
+        { key: 'launchStrategy', label: '5.3 Launch Strategy' }
+      ]},
+      { phase: 'execution', name: 'Phase 6 — Execution', fields: [
+        { key: 'metricsKPIs', label: '6.1 Metrics & KPIs' },
+        { key: 'riskManagement', label: '6.2 Risk Management' }
+      ]},
+      { phase: 'synthesis', name: 'Phase 7 — Synthesis', fields: [
+        { key: 'confidenceBreakdown', label: '7.1 Confidence Breakdown' },
+        { key: 'decisionLog', label: '7.2 Decision Log' },
+        { key: 'leanCanvas', label: '7.3 Lean Canvas' },
+        { key: 'handoffChecklist', label: '7.4 Handoff Checklist' }
+      ]}
+    ];
+
+    function buildPhaseProgress(project) {
+      const completed = [];
+      const empty = [];
+      let suggestedNext = '';
+      const currentPhaseNum = project.phase != null ? project.phase : 1;
+      for (const block of PHASE_SECTIONS) {
+        const data = project[block.phase];
+        for (const f of block.fields) {
+          const val = data && data[f.key] && typeof data[f.key] === 'string' && data[f.key].trim();
+          if (val && val.length > 20) completed.push(f.label); else empty.push(f.label);
+        }
+        if (!suggestedNext) {
+          const firstEmpty = block.fields.find(f => !(data && data[f.key] && typeof data[f.key] === 'string' && data[f.key].trim().length > 20));
+          if (firstEmpty) suggestedNext = 'Next: ' + firstEmpty.label + ' (' + block.name + ').';
+        }
+      }
+      if (!suggestedNext && completed.length > 0) suggestedNext = 'Most sections are filled. Deepen or move to the next phase; do NOT re-cover completed sections.';
+      if (!suggestedNext) suggestedNext = 'Start with 1.1 The Spark.';
+      return [
+        '[System: PHASE PROGRESS — you MUST use this to avoid re-asking.]',
+        'Current phase: ' + currentPhaseNum + '.',
+        'COMPLETED (do NOT ask again, do NOT guide the user through these): ' + (completed.length ? completed.join(', ') : 'none') + '.',
+        'NOT YET FILLED (you may ask about these): ' + (empty.length ? empty.join(', ') : 'none — all done.') + '.',
+        suggestedNext,
+        'Do NOT re-ask for or re-explain any COMPLETED section. Continue from the next unfilled area or deepen one topic.'
+      ].join('\n');
+    }
+
+    /** Returns full project context: transcript as turns + state message with actual content of every field. */
+    async function getFullProjectContext(projectId, backendUrl) {
+      if (!projectId || !backendUrl) return { transcriptTurns: [], stateMessage: '' };
+      const base = backendUrl.replace(/\/$/, '');
+      try {
+        const res = await authFetch(base + '/projects/' + encodeURIComponent(projectId));
+        if (!res.ok) return { transcriptTurns: [], stateMessage: '' };
+        const project = await res.json();
+
+        const transcriptTurns = [];
+        const rawTranscript = project.conversationTranscript;
+        if (Array.isArray(rawTranscript) && rawTranscript.length > 0) {
+          let totalLen = 0;
+          for (let i = 0; i < rawTranscript.length && totalLen < MAX_TRANSCRIPT_CONTEXT; i++) {
+            const e = rawTranscript[i];
+            const text = (e && e.text) ? String(e.text).trim() : '';
+            if (!text) continue;
+            totalLen += text.length;
+            transcriptTurns.push({
+              role: (e.speaker === 'user' ? 'user' : 'model'),
+              parts: [{ text: text.length > 2000 ? text.slice(-2000) : text }]
+            });
+          }
+        }
+
+        const progressBlock = buildPhaseProgress(project);
+        const stateParts = [progressBlock, '---', 'Name: ' + (project.name || 'Unnamed'), 'Phase: ' + (project.phase != null ? project.phase : 1)];
+        if (project.snapshot && project.snapshot.trim()) stateParts.push('Snapshot: ' + project.snapshot.trim().slice(0, 300));
+        if (project.elevatorPitch && project.elevatorPitch.trim()) stateParts.push('Elevator pitch: ' + project.elevatorPitch.trim().slice(0, 400));
+        const phaseNames = ['foundation', 'validation', 'feasibility', 'viability', 'goToMarket', 'execution', 'synthesis'];
+        for (const phase of phaseNames) {
+          const data = project[phase];
+          if (!data || typeof data !== 'object') continue;
+          for (const [k, v] of Object.entries(data)) {
+            if (v && typeof v === 'string' && v.trim()) {
+              const excerpt = v.trim().length > MAX_FIELD_CONTEXT ? v.trim().slice(0, MAX_FIELD_CONTEXT) + '...' : v.trim();
+              stateParts.push(phase + '.' + k + ': ' + excerpt.replace(/\n/g, ' '));
+            }
+          }
+        }
+        const stateMessage = stateParts.length
+          ? '[System: Current project state — everything already captured. Do NOT re-ask for or re-explain this. Use it to continue refining.]\n\n' + stateParts.join('\n\n')
+          : '';
+        return { transcriptTurns, stateMessage };
+      } catch (e) {
+        log('getFullProjectContext failed', e);
+        return { transcriptTurns: [], stateMessage: '' };
+      }
+    }
+
+    async function getProjectStateSummary(projectId, backendUrl) {
+      const { stateMessage } = await getFullProjectContext(projectId, backendUrl);
+      return stateMessage ? stateMessage + '\n\n[System: Continue from the last exchange above. Do NOT repeat questions already asked.]' : '';
+    }
+
     async function triggerDocumentPolisher(projectId, backendUrl, reason) {
       if (!projectId || !backendUrl) return;
       if (polisherRunning) {
@@ -1867,8 +1994,7 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
             modelTranscriptBuffer += outputT.text;
             modelTurnTranscript += (needsSpace ? ' ' : '') + outputT.text;
             if (currentProjectId && currentBackendUrl) {
-              tryApplyRegistryPatch(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
-              tryDispatchAgentTask(modelTranscriptBuffer, currentProjectId, currentBackendUrl);
+              // Registry patch and agent dispatch run only on generationComplete (full turn) below
             }
             recentModelTranscript += outputT.text;
             if (recentModelTranscript.length > RECENT_MODEL_TRANSCRIPT_MAX) {
@@ -2014,16 +2140,27 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           flushModelTranscript();
           const ctx = buildReconnectContext();
           if (ctx) {
+            const fullContext = await getFullProjectContext(currentProjectId, currentBackendUrl);
             const turns = [];
+            for (const t of fullContext.transcriptTurns) turns.push(t);
             const merged = mergeConsecutiveTranscript(conversationLog);
-            const MAX_HISTORY = 30;
-            const recent = merged.length > MAX_HISTORY ? merged.slice(-MAX_HISTORY) : merged;
-            for (const entry of recent) {
-              turns.push({ role: entry.speaker === 'user' ? 'user' : 'model', parts: [{ text: entry.text }] });
+            const MAX_SESSION_TURNS = 50;
+            const MAX_SESSION_CHARS = 40000;
+            let recent = merged.length > MAX_SESSION_TURNS ? merged.slice(-MAX_SESSION_TURNS) : merged;
+            let totalChars = recent.reduce((s, e) => s + (e.text || '').length, 0);
+            while (recent.length > 1 && totalChars > MAX_SESSION_CHARS) {
+              recent = recent.slice(1);
+              totalChars = recent.reduce((s, e) => s + (e.text || '').length, 0);
             }
-            turns.push({ role: 'user', parts: [{ text: '[System: The connection was interrupted. This is a reconnected session with the conversation history above. Continue EXACTLY where we left off. Do NOT start over, re-introduce yourself, or repeat questions already asked. ProjectId: ' + (currentProjectId || 'unknown') + ']' }] });
+            for (const entry of recent) {
+              const text = entry.text && entry.text.length > 2000 ? entry.text.slice(-2000) : entry.text;
+              turns.push({ role: entry.speaker === 'user' ? 'user' : 'model', parts: [{ text: text || '' }] });
+            }
+            let resumeText = '[System: The connection was interrupted. This is a reconnected session. The conversation history above includes all previous discussions. Continue EXACTLY where we left off. Do NOT start over, re-introduce yourself, or repeat questions already asked. ProjectId: ' + (currentProjectId || 'unknown') + ']';
+            if (fullContext.stateMessage) resumeText += '\n\n' + fullContext.stateMessage + '\n\n[System: Continue from the last exchange. Do NOT re-ask for content already captured.]';
+            turns.push({ role: 'user', parts: [{ text: resumeText }] });
             ws.send(JSON.stringify({ clientContent: { turns, turnComplete: true } }));
-            log('Reconnect: sent ' + (turns.length - 1) + ' history turns + resume instruction');
+            log('Reconnect: sent ' + turns.length + ' turns (full project transcript + current session + state)');
           } else {
             ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[System: Connection was briefly interrupted. Continue the conversation. ProjectId: ' + (currentProjectId || 'unknown') + ']' }] }], turnComplete: true } }));
           }
@@ -2266,6 +2403,21 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
           fallbackUrl = (window.VOICE_AGENT_CONFIG.FALLBACK_URL || '').trim();
           if (window.VOICE_AGENT_CONFIG.API_KEY) currentApiKey = window.VOICE_AGENT_CONFIG.API_KEY;
           log('Config loaded from native bridge');
+        } else if (window.Android) {
+          setStatus('Loading app config…');
+          await new Promise(r => setTimeout(r, 400));
+          if (window.VOICE_AGENT_CONFIG) {
+            apiKey = window.VOICE_AGENT_CONFIG.GEMINI_API_KEY;
+            primaryUrl = (window.VOICE_AGENT_CONFIG.BACKEND_URL || '').trim();
+            fallbackUrl = (window.VOICE_AGENT_CONFIG.FALLBACK_URL || '').trim();
+            if (window.VOICE_AGENT_CONFIG.API_KEY) currentApiKey = window.VOICE_AGENT_CONFIG.API_KEY;
+          }
+          if (!apiKey || !primaryUrl) {
+            configWarning.hidden = false;
+            configWarning.textContent = 'Open Settings and set Backend URL and API key, then return here.';
+            setStatus('Configure in Settings');
+            return;
+          }
         } else {
           const mod = await import('./config.js');
           apiKey = mod.GEMINI_API_KEY;
@@ -2382,21 +2534,26 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
       try {
         log('Calling startConversation(apiKey, options)...');
         await startConversation(apiKey, { systemInstruction, projectId, backendUrl: currentBackendUrl });
-        log('startConversation resolved, sending initial turn to wake model');
+        log('startConversation resolved, sending context and initial turn');
         setStatus('Starting…');
-        const projForResume = projectId && resumableProject ? resumableProject : null;
-        const initialText = projForResume?.checkpoint
-          ? 'We are resuming project ' + projectId + '. Checkpoint: ' + (projForResume.checkpoint.note || 'paused') + '. Open questions: ' + (projForResume.openQuestions?.length || 0) + '. Ask one restart question.'
-          : projectId
-            ? 'We are starting idea refinement. ProjectId is ' + projectId + '. Say a brief hello and ask for the idea in one sentence.'
-            : 'Hello. The user is ready. Say a brief hello and that you are listening.';
-        ws.send(JSON.stringify({
-          clientContent: {
-            turns: [{ role: 'user', parts: [{ text: initialText }] }],
-            turnComplete: true
-          }
-        }));
-        log('Initial clientContent sent');
+        const base = currentBackendUrl || backendUrl;
+        if (projectId && base) {
+          const fullContext = await getFullProjectContext(projectId, base);
+          const turns = [];
+          for (const t of fullContext.transcriptTurns) turns.push(t);
+          if (fullContext.stateMessage) turns.push({ role: 'user', parts: [{ text: fullContext.stateMessage }] });
+          const projForResume = resumableProject?.checkpoint;
+          const continueText = projForResume
+            ? '[System: Resume this project. Checkpoint: ' + (resumableProject.checkpoint.note || 'paused') + '. Continue from where we left off. Say a brief hello and ask the next question. Do NOT re-ask for content already in the project state above. ProjectId: ' + projectId + ']'
+            : '[System: This project may have prior discussions and captured content above. Continue refining. Say a brief hello and ask the next question or for the idea. Do NOT re-ask for content already captured. ProjectId: ' + projectId + ']';
+          turns.push({ role: 'user', parts: [{ text: continueText }] });
+          ws.send(JSON.stringify({ clientContent: { turns, turnComplete: true } }));
+          log('Initial clientContent sent: ' + turns.length + ' turns (full transcript + state + continue)');
+        } else {
+          const initialText = 'Hello. The user is ready. Say a brief hello and that you are listening.';
+          ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: initialText }] }], turnComplete: true } }));
+          log('Initial clientContent sent (no project)');
+        }
         setStatus('Starting microphone…');
         if (!window.playbackCtx) {
           window.playbackCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: RECV_RATE });
@@ -2628,20 +2785,23 @@ const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
     (async () => {
       try {
-        let primaryUrl, fallbackUrl, authKey;
+        if (window.Android && !window.VOICE_AGENT_CONFIG) await new Promise(r => setTimeout(r, 500));
+        let primaryUrl = '', fallbackUrl = '', authKey = '';
         if (window.VOICE_AGENT_CONFIG) {
           primaryUrl = (window.VOICE_AGENT_CONFIG.BACKEND_URL || '').trim();
           fallbackUrl = (window.VOICE_AGENT_CONFIG.FALLBACK_URL || '').trim();
-          authKey = window.VOICE_AGENT_CONFIG.API_KEY;
-        } else {
+          authKey = window.VOICE_AGENT_CONFIG.API_KEY || '';
+        } else if (!window.Android) {
           const mod = await import('./config.js');
           primaryUrl = (mod.BACKEND_URL || '').trim();
           fallbackUrl = (mod.FALLBACK_URL || '').trim();
-          authKey = mod.API_KEY;
+          authKey = mod.API_KEY || '';
         }
         if (authKey) currentApiKey = authKey;
-        const url = await resolveBackendUrl(primaryUrl, fallbackUrl);
-        if (url) { currentBackendUrl = url.replace(/\/$/, ''); showProjectsSection(); }
+        if (primaryUrl || fallbackUrl) {
+          const url = await resolveBackendUrl(primaryUrl, fallbackUrl);
+          if (url) { currentBackendUrl = url.replace(/\/$/, ''); await showProjectsSection(); }
+        }
       } catch (_) {}
     })();
   </script>
